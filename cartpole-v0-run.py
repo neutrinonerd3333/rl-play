@@ -8,7 +8,7 @@ import pandas
 import gym
 import gym.spaces
 
-from qlearner import TabularQLearner, DeepQLearnerDiscrete
+import qlearner
 
 cart_pole_bins = [pandas.cut([-bound, bound], bins=bin_n, retbins=True)[1][1:-1] for (bin_n, bound) in [(3, 2.4), (4, 1.5), (8, 0.27), (6, 1.5)]]
 def build_state(observation):
@@ -37,6 +37,8 @@ def main():
     parser.add_argument("--deep", action="store_true")
     parser.add_argument("--hidden_layers", type=int, nargs="+", default=[100])
 
+    parser.add_argument("--batch_size", type=int, default=None)
+
     parser.add_argument("--episodes", type=int, default=1000)
 
     args = parser.parse_args()
@@ -53,7 +55,9 @@ def main():
         env.monitor.start('/tmp/{}-{}'.format(env_name, time_str), force=True)
 
     # learning setup
-    learner = TabularQLearner(action_n, args.gamma,
+    learner = qlearner.QLearner(action_n,
+                              qlearner.TabularQApproximator(action_n, batch_size=args.batch_size),
+                               args.gamma,
                               learning_rate=args.alpha,
                               epsilon=args.epsilon,
                               learning_rate_decay=args.alpha_decay,
