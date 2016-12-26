@@ -1,3 +1,5 @@
+import typing
+
 import collections
 import random
 import numpy
@@ -5,14 +7,29 @@ import numpy
 import sklearn.neural_network
 import keras.models
 
-class TabularQApproximator:
+
+class BaseQApproximator:
+    def best_action(self, state: str) -> int:
+        raise NotImplementedError()
+
+    def update(self, old_state: str,
+               new_state: str,
+               action: int,
+               reward: float,
+               terminal: bool,
+               gamma: float,
+               learning_rate: float):
+        raise NotImplementedError()
+
+
+class TabularQApproximator(BaseQApproximator):
     def __init__(self, action_n, batch_size=None):
         self.action_n = action_n
         self.table = collections.defaultdict(lambda: numpy.random.normal(0, 0.1, self.action_n))
         self.history = []
         self.batch_size = batch_size
 
-    def best_action(self, state):
+    def best_action(self, state: str) -> int:
         return numpy.argmax(self.table[state])
 
     def update(self, old_state, new_state, action, reward, terminal, gamma, learning_rate):
@@ -56,7 +73,7 @@ class TabularQApproximator:
             self.table[old_state][action] = (1 - learning_rate) * old_q + learning_rate * new_q
 
 
-class DeepQApproximator:
+class DeepQApproximator(BaseQApproximator):
     def __init__(self, model):
         # self.mlp = sklearn.neural_network.MLPRegressor(*args, **kwargs)
         self.history = []
@@ -74,16 +91,20 @@ class DeepQApproximator:
         minibatch_experience = random.sample(self.history, minibatch_size)
 
 
-
 class QLearner:
-    def __init__(self, action_n, q_approximator,
-                 gamma=0.99,
-                 learning_rate=0.8,
-                 epsilon=0.6,
-                 learning_rate_decay=1,
-                 learning_rate_decay_delay=150,
-                 epsilon_decay=0.99,
-                 epsilon_decay_delay=150):
+    """
+    A learner implementing all components of the Q-learning algorithm:
+    epsilon-greedy action selection, 
+    """
+
+    def __init__(self, action_n: int,
+                 q_approximator: BaseQApproximator,
+                 gamma: float = 0.99,
+                 learning_rate: float = 0.8,
+                 learning_rate_min: float = 0.1,
+                 epsilon: float = 0.6,
+                 epsilon_min: float = 0.01,
+                 annealing_time: int = 100) -> None:
         """
         @param gamma: utility discount factor
         @param learning_rate: learning rate of algorithm
@@ -100,17 +121,24 @@ class QLearner:
         self.epsilon = epsilon
         self.action_n = action_n
 
-        self.epsilon_decay = epsilon_decay
-        self.epsilon_decay_delay = epsilon_decay_delay
-        self.learning_rate_decay = learning_rate_decay
-        self.learning_rate_decay_delay = learning_rate_decay_delay
+        self.epsilon_min = epsilon_min
+        self.learning_rate_min = learning_rate_min
+        # self.annealing_time = annealing_time
+
+        self.epsilon_decay_rate = (epsilon - epsilon_min) / annealing_time
+        self.learning_rate_decay_rate = (learning_rate - learning_rate_min) / annealing_time
+
+        # self.epsilon_decay = epsilon_decay
+        # self.epsilon_decay_delay = epsilon_decay_delay
+        # self.learning_rate_decay = learning_rate_decay
+        # self.learning_rate_decay_delay = learning_rate_decay_delay
 
         self.current_epsilon = epsilon
         self.current_learning_rate = learning_rate
 
         self.q_approximator = q_approximator
 
-    def select_action(self, state):
+    def select_action(self, state: str) -> int:
         """
         @param state: our current state
         @return an epsilon-greedy choice
