@@ -26,13 +26,17 @@ def main():
 
     # learning rate
     parser.add_argument("--alpha", type=float, default=0.8)
-    parser.add_argument("--alpha_decay", type=float, default=0.99)
-    parser.add_argument("--alpha_decay_delay", type=int, default=150)
+    # parser.add_argument("--alpha_decay", type=float, default=0.99)
+    # parser.add_argument("--alpha_decay_delay", type=int, default=150)
+    parser.add_argument("--alpha_min", type=float, default=0.1)
 
     # exploration parameter
-    parser.add_argument("--epsilon", type=float, default=0.6)
-    parser.add_argument("--epsilon_decay", type=float, default=0.99)
-    parser.add_argument("--epsilon_decay_delay", type=int, default=150)
+    parser.add_argument("--epsilon", type=float, default=1.0)
+    # parser.add_argument("--epsilon_decay", type=float, default=0.99)
+    # parser.add_argument("--epsilon_decay_delay", type=int, default=150)
+    parser.add_argument("--epsilon_min", type=float, default=0.01)
+
+    parser.add_argument("--anneal", type=int, default=100)
 
     parser.add_argument("--deep", action="store_true")
     parser.add_argument("--hidden_layers", type=int, nargs="+", default=[100])
@@ -59,20 +63,11 @@ def main():
                               qlearner.TabularQApproximator(action_n, batch_size=args.batch_size),
                                args.gamma,
                               learning_rate=args.alpha,
+                              learning_rate_min=args.alpha_min,
                               epsilon=args.epsilon,
-                              learning_rate_decay=args.alpha_decay,
-                              learning_rate_decay_delay=args.alpha_decay_delay,
-                              epsilon_decay=args.epsilon_decay,
-                              epsilon_decay_delay=args.epsilon_decay_delay) \
-        if not args.deep else \
-        DeepQLearnerDiscrete(action_n, args.gamma,
-                              learning_rate=args.alpha,
-                              epsilon=args.epsilon,
-                              learning_rate_decay=args.alpha_decay,
-                              learning_rate_decay_delay=args.alpha_decay_delay,
-                              epsilon_decay=args.epsilon_decay,
-                              epsilon_decay_delay=args.epsilon_decay_delay,
-                              hidden_layer_sizes=args.hidden_layers)
+                              epsilon_min=args.epsilon_min,
+                              annealing_time=args.anneal) \
+        if not args.deep else NotImplemented("Not implemented yet oops")
 
     n_epsiodes = args.episodes
     episodes = numpy.array([])

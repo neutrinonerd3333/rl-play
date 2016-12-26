@@ -35,21 +35,18 @@ class TabularQApproximator:
         if self.batch_size is not None:
             self.history.append((old_state, new_state, action, reward, terminal))
 
-            try:
-                experience = random.sample(self.history, self.batch_size)
-                olds, acts, rewards, terminalness = [[tup[i] for tup in experience] for i in (0, 2, 3, 4)]
+            experience = random.sample(self.history, min(len(self.history), self.batch_size))
+            olds, acts, rewards, terminalness = [[tup[i] for tup in experience] for i in (0, 2, 3, 4)]
 
-                old_q = numpy.array([self.table[old][act] for (old, _, act, _, _) in experience])
+            old_q = numpy.array([self.table[old][act] for (old, _, act, _, _) in experience])
 
-                expected_futures = gamma * numpy.array([numpy.max(self.table[tup[1]]) for tup in experience])
-                new_q = rewards + numpy.logical_not(terminalness) * expected_futures
+            expected_futures = gamma * numpy.array([numpy.max(self.table[tup[1]]) for tup in experience])
+            new_q = rewards + numpy.logical_not(terminalness) * expected_futures
 
-                updated = (1 - learning_rate) * old_q + learning_rate * new_q
+            updated = (1 - learning_rate) * old_q + learning_rate * new_q
 
-                for (old, act, new_val) in zip(olds, acts, updated):
-                    self.table[old][act] = new_val
-            except ValueError:
-                pass
+            for (old, act, new_val) in zip(olds, acts, updated):
+                self.table[old][act] = new_val
         else:
             old_q = self.table[old_state][action]
             new_q = reward
@@ -134,5 +131,5 @@ class QLearner:
         self.q_approximator.update(old_state, new_state, action, reward, terminal, self.gamma, self.current_learning_rate)
 
     def decay(self, i_episode):
-        self.current_epsilon = max(0.05, 1 - 0.01 * i_episode)
-        self.current_learning_rate = max(0.1, 0.8 - 0.01 * i_episode)
+        self.current_epsilon = max(self.epsilon_min, self.epsilon - i_episode * self.epsilon_decay_rate)
+        self.current_learning_rate = max(self.learning_rate_min, self.learning_rate - i_episode * self.learning_rate_decay_rate)
