@@ -95,7 +95,7 @@ def main():
             action = learner.select_action(state)
             observation, reward, done, info = env.step(action)
             new_state = observation if args.deep else build_state(observation)
-            learner.update_q(state, new_state, action, reward)
+            learner.update_q(state, new_state, action, reward, done)
 
             if done or t == MAX_T - 1:
                 num_timesteps = t + 1

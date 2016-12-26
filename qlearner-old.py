@@ -52,11 +52,6 @@ class TabularQLearner(QLearner):
         @param learning_rate: learning rate of algorithm
         @param epsilon: as in ``epsilon-greedy"
         """
-        # preconditions
-        assert 0 < gamma < 1
-        assert 0 < learning_rate <= 1
-        assert 0 < epsilon <= 1
-
         super().__init__(action_n, gamma, learning_rate, epsilon, learning_rate_decay, learning_rate_decay_delay, epsilon_decay, epsilon_decay_delay)
         self.qtable = collections.defaultdict(lambda: numpy.random.normal(0, 0.1, self.action_n))
 
@@ -69,7 +64,7 @@ class TabularQLearner(QLearner):
         return numpy.argmax(self.qtable[state]) \
             if greedy else random.randrange(self.action_n)
 
-    def update_q(self, old_state, new_state, action, reward):
+    def update_q(self, old_state, new_state, action, reward, terminal):
         """
         Update our table of Q values.
 
@@ -81,7 +76,7 @@ class TabularQLearner(QLearner):
         old_q_val = self.qtable[old_state][action]
         self.qtable[old_state][action] = \
             (1 - self.current_learning_rate) * old_q_val + \
-            self.current_learning_rate * (reward + self.gamma * numpy.max(self.qtable[new_state]))
+            self.current_learning_rate * (reward + (0 if terminal else (self.gamma * numpy.max(self.qtable[new_state]))))
 
     def decay(self, i_episode):
         self.current_epsilon = self.epsilon if i_episode < self.epsilon_decay_delay \
@@ -107,9 +102,9 @@ class DeepQLearnerDiscrete(QLearner):
         return numpy.argmax(self.q_net.predict(state.reshape(1, -1))) \
             if greedy else random.randrange(self.action_n)
 
-    def update_q(self, old_state, new_state, action, reward):
+    def update_q(self, old_state, new_state, action, reward, terminal):
         try:
-            correct_q_val = reward + self.gamma * numpy.max(self.q_net.predict(new_state.reshape(1, -1)))
+            correct_q_val = reward + (0 if terminal else (self.gamma * numpy.max(self.q_net.predict(new_state.reshape(1, -1)))))
             current_q_array = self.q_net.predict(old_state.reshape(1, -1))
             current_q_array[0][action] = correct_q_val
         except sklearn.exceptions.NotFittedError:
