@@ -12,6 +12,7 @@ import gym
 import gym.spaces
 
 import qlearner
+import approximators
 
 # bin_params = [(3, 2.4), (4, 1.5), (8, 0.27), (6, 1.5)]
 bin_params = [(3, 2.4), (3, 1.5), (12, 0.27), (12, 1.5)]
@@ -74,9 +75,9 @@ def main():
             keras.layers.Activation('relu'),
             keras.layers.Dense(2)
         ])
-        approximator = qlearner.DeepQNetwork(model, batch_size=args.batch_size)
+        approximator = approximators.DeepQNetwork(model, batch_size=args.batch_size)
     else:
-        approximator = qlearner.TabularQApproximator(action_n, batch_size=args.batch_size)
+        approximator = approximators.TabularQApproximator(action_n, batch_size=args.batch_size)
 
     learner = qlearner.QLearner(action_n, approximator,
                                args.gamma,
