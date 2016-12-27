@@ -61,6 +61,18 @@ def main():
     assert isinstance(env.action_space, gym.spaces.Discrete)
     action_n = env.action_space.n
 
+    victory_thresh = 0
+    past_n = 0
+    if env_name == "CartPole-v0":
+        victory_thresh = 195
+        past_n = 100
+    elif env_name == "CartPole-v1":
+        victory_thresh = 475
+        past_n = 100
+    elif env_name == "LunarLander-v2":
+        victory_thresh = 200
+        past_n = 100
+
     # monitoring
     if args.monitor:
         time_str = time.strftime("%Y%m%d_%H%M%S")
@@ -73,7 +85,7 @@ def main():
             keras.layers.Activation('relu'),
             keras.layers.Dense(32, W_regularizer=l2(0.1)),
             keras.layers.Activation('relu'),
-            keras.layers.Dense(2)
+            keras.layers.Dense(action_n)
         ])
         approximator = approximators.DeepQNetwork(model, batch_size=args.batch_size)
     else:
@@ -87,10 +99,10 @@ def main():
                                epsilon_min=args.epsilon_min,
                                annealing_time=args.anneal)
 
-    n_epsiodes = args.episodes
+    n_episodes = args.episodes
     episodes = numpy.array([])
-    timesteps = numpy.array([])
-    past_hundred_avg = numpy.array([])
+    rewards = numpy.array([])
+    past_n_avg = numpy.array([])
 
     MAX_T = 100000
 
@@ -100,8 +112,9 @@ def main():
     matplotlib.pyplot.ion()
 
     # LEARN!
-    for i_episode in range(n_epsiodes):
+    for i_episode in range(n_episodes):
         observation = env.reset()
+        episode_reward = 0
         for t in range(MAX_T):
             env.render()
             # print(observation)
@@ -111,35 +124,39 @@ def main():
             # select actions
             action = learner.select_action(state)
             observation, reward, done, info = env.step(action)
+            episode_reward += reward
             new_state = observation if args.deep else build_state(observation)
             learner.update_q(state, new_state, action, reward, done)
 
             if done or t == MAX_T - 1:
                 num_timesteps = t + 1
+
                 episodes = numpy.append(episodes, i_episode)
-                timesteps = numpy.append(timesteps, num_timesteps)
-                past_hundred_avg = numpy.append(past_hundred_avg, numpy.mean(timesteps[-100:]))
+                rewards = numpy.append(rewards, episode_reward)
+                past_n_avg = numpy.append(past_n_avg, numpy.mean(rewards[-past_n:]))
 
                 # exponentially weighted moving avg
                 if len(ewmas) == 0:
-                    ewmas.append(num_timesteps)
+                    # ewmas.append(num_timesteps)
+                    ewmas.append(episode_reward)
                 else:
-                    ewmas.append(ewmas[-1] * (1 - ewma_factor) + ewma_factor * num_timesteps)
+                    ewmas.append(ewmas[-1] * (1 - ewma_factor) + ewma_factor * episode_reward)
 
-                print("Episode {} finished after {} timesteps, {} = {:.4}, {} = {:.4}"\
-                    .format(i_episode + 1, num_timesteps, chr(949),
-                        learner.current_epsilon, chr(945), learner.current_learning_rate))
+                print("Episode {} finished after {} timesteps with reward {}, {} = {:.4}, {} = {:.4}"\
+                    .format(i_episode + 1, num_timesteps, episode_reward,
+                        chr(949), learner.current_epsilon,
+                        chr(945), learner.current_learning_rate))
                 learner.decay(i_episode)
                 break
 
         # plotting, monitoring
         if i_episode % 10 == 0:
-            matplotlib.pyplot.plot(episodes, timesteps, color="cornflowerblue")
+            matplotlib.pyplot.plot(episodes, rewards, color="cornflowerblue")
             matplotlib.pyplot.plot(episodes, ewmas, color="mediumorchid")
-            matplotlib.pyplot.plot(episodes, past_hundred_avg, color="darkorchid")
+            matplotlib.pyplot.plot(episodes, past_n_avg, color="darkorchid")
             matplotlib.pyplot.draw()
 
-        if past_hundred_avg[-1] > (195 if args.env == "CartPole-v0" else 475):
+        if past_n_avg[-1] > victory_thresh:
             print("Success!")
             break
 

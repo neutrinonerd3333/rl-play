@@ -1,6 +1,8 @@
 import typing
 import random
 
+import approximators
+
 class QLearner:
     """
     A learner implementing all components of the Q-learning algorithm:
@@ -8,7 +10,7 @@ class QLearner:
     """
 
     def __init__(self, action_n: int,
-                 q_approximator: BaseQApproximator,
+                 q_approximator: approximators.BaseQApproximator,
                  gamma: float = 0.99,
                  learning_rate: float = 0.8,
                  learning_rate_min: float = 0.1,
