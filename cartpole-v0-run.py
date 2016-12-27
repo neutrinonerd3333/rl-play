@@ -5,12 +5,17 @@ import numpy
 import matplotlib.pyplot
 import pandas
 
+import keras.models
+from keras.regularizers import l2
+
 import gym
 import gym.spaces
 
 import qlearner
 
-cart_pole_bins = [pandas.cut([-bound, bound], bins=bin_n, retbins=True)[1][1:-1] for (bin_n, bound) in [(3, 2.4), (4, 1.5), (8, 0.27), (6, 1.5)]]
+# bin_params = [(3, 2.4), (4, 1.5), (8, 0.27), (6, 1.5)]
+bin_params = [(3, 2.4), (3, 1.5), (12, 0.27), (12, 1.5)]
+cart_pole_bins = [pandas.cut([-bound, bound], bins=bin_n, retbins=True)[1][1:-1] for (bin_n, bound) in bin_params]
 def build_state(observation):
     obs_bins_pairs = zip(observation, cart_pole_bins)
     discretized = [numpy.digitize(x=obs, bins=bins) for (obs, bins) in obs_bins_pairs]
@@ -59,15 +64,25 @@ def main():
         env.monitor.start('/tmp/{}-{}'.format(env_name, time_str), force=True)
 
     # learning setup
-    learner = qlearner.QLearner(action_n,
-                              qlearner.TabularQApproximator(action_n, batch_size=args.batch_size),
+    if args.deep:
+        model = keras.models.Sequential([
+            keras.layers.Dense(32, input_shape=(4,), W_regularizer=l2(0.1)),
+            keras.layers.Activation('relu'),
+            keras.layers.Dense(32, W_regularizer=l2(0.1)),
+            keras.layers.Activation('relu'),
+            keras.layers.Dense(2)
+        ])
+        approximator = qlearner.DeepQNetwork(model, batch_size=args.batch_size)
+    else:
+        approximator = qlearner.TabularQApproximator(action_n, batch_size=args.batch_size)
+
+    learner = qlearner.QLearner(action_n, approximator,
                                args.gamma,
-                              learning_rate=args.alpha,
-                              learning_rate_min=args.alpha_min,
-                              epsilon=args.epsilon,
-                              epsilon_min=args.epsilon_min,
-                              annealing_time=args.anneal) \
-        if not args.deep else NotImplemented("Not implemented yet oops")
+                               learning_rate=args.alpha,
+                               learning_rate_min=args.alpha_min,
+                               epsilon=args.epsilon,
+                               epsilon_min=args.epsilon_min,
+                               annealing_time=args.anneal)
 
     n_epsiodes = args.episodes
     episodes = numpy.array([])
