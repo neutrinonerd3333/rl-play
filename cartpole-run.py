@@ -50,10 +50,12 @@ def main():
 
     parser.add_argument("--episodes", type=int, default=1000)
 
+    parser.add_argument("--env", default="CartPole-v0")
+
     args = parser.parse_args()
 
     # env specific
-    env_name = "CartPole-v0"
+    env_name = args.env
     env = gym.make(env_name)
     assert isinstance(env.action_space, gym.spaces.Discrete)
     action_n = env.action_space.n
@@ -136,7 +138,7 @@ def main():
             matplotlib.pyplot.plot(episodes, past_hundred_avg, color="darkorchid")
             matplotlib.pyplot.draw()
 
-        if past_hundred_avg[-1] > 195:
+        if past_hundred_avg[-1] > (195 if args.env == "CartPole-v0" else 475):
             print("Success!")
             break
 
