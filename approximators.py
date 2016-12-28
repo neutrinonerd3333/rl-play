@@ -13,6 +13,7 @@ import tensorflow
 
 # LOTS of inspiration from https://github.com/matthiasplappert/keras-rl/
 
+
 class LearnerMemory:
     def __init__(self):
         self.history = []
@@ -25,7 +26,7 @@ class LearnerMemory:
 
 
 class BaseQApproximator:
-    def best_action(self, state: str) -> int:
+    def best_action(self, state: str, verbose: bool) -> int:
         raise NotImplementedError()
 
     def update(self, old_state: str,
@@ -39,9 +40,10 @@ class BaseQApproximator:
 
 
 class TabularQApproximator(BaseQApproximator):
-    def __init__(self, action_n: int, batch_size=None):
+    def __init__(self, action_n: int, batch_size=None) -> None:
         self.action_n = action_n
-        self.table = collections.defaultdict(lambda: numpy.random.normal(0, 0.1, self.action_n))
+        self.table = collections.defaultdict(
+            lambda: numpy.random.normal(0, 0.1, self.action_n))
         self.history = LearnerMemory()
         self.batch_size = batch_size
 
@@ -51,7 +53,13 @@ class TabularQApproximator(BaseQApproximator):
             print(q_table)
         return numpy.argmax(q_table)
 
-    def update(self, old_state, new_state, action, reward, terminal, gamma, **kwargs):
+    def update(self, old_state: str,
+               new_state: str,
+               action: int,
+               reward: float,
+               terminal: bool,
+               gamma: float,
+               **kwargs):
         """
         Update our table of Q values with the Bellman equation.
 
@@ -73,7 +81,7 @@ class TabularQApproximator(BaseQApproximator):
             self.history.append((old_state, new_state, action, reward, terminal))
 
             experience = self.history.sample(self.batch_size)
-            olds, news, acts, rewards, terminalness = [[tup[i] for tup in experience] for i in range(5)]
+            olds, news, acts, rewards, terminalness = list(zip(experience))
 
             old_q = numpy.array([self.table[old][act] for (old, _, act, _, _) in experience])
             expected_futures = gamma * numpy.array([numpy.max(self.table[new]) for new in news])
@@ -105,7 +113,9 @@ def identity(y_true, y_pred):
     return y_pred
 
 class DeepQNetwork(BaseQApproximator):
-    def __init__(self, model: keras.models.Model, batch_size=None, delta_clip=numpy.inf):
+    def __init__(self, model: keras.models.Model,
+                 batch_size=None,
+                 delta_clip=numpy.inf) -> None:
         self.history = LearnerMemory()
         self.batch_size = batch_size
         self.delta_clip = delta_clip
@@ -139,7 +149,8 @@ class DeepQNetwork(BaseQApproximator):
             losses = huber_loss(errors, self.delta_clip)
             return keras.backend.sum(losses * mask, axis=-1)
 
-        loss_tensor = keras.layers.Lambda(masked_huber_loss, output_shape=(1,), name='loss')([y_true_tensor, y_pred_tensor, action_tensor])
+        loss_tensor = keras.layers.Lambda(masked_huber_loss, output_shape=(1,), name='loss') \
+            ([y_true_tensor, y_pred_tensor, action_tensor])
         self.trainable_model = keras.models.Model(input=(inputs + [y_true_tensor, action_tensor]), output=loss_tensor)
         sgd_optimizer = keras.optimizers.SGD(lr=0.008, decay=1e-6)
         self.trainable_model.compile(loss=identity, optimizer=sgd_optimizer)
@@ -152,7 +163,13 @@ class DeepQNetwork(BaseQApproximator):
             print("best action: {}".format(numpy.argmax(q_vals)))
         return numpy.argmax(q_vals)
 
-    def update(self, old_state, new_state, action, reward, terminal, gamma, **kwargs):
+    def update(self, old_state,
+               new_state,
+               action,
+               reward,
+               terminal,
+               gamma,
+               **kwargs):
         assert 0 <= gamma < 1
 
         # add to history
@@ -176,5 +193,4 @@ class DeepQNetwork(BaseQApproximator):
 
         self.trainable_model.train_on_batch([olds, q_val_array, acts_one_hot], dummy_targets)
         self.target_model.set_weights(self.model.get_weights())
-
 

@@ -2,7 +2,7 @@ import time
 import argparse
 
 import numpy
-import matplotlib.pyplot
+import matplotlib.pyplot as plt
 import pandas
 
 import keras.models
@@ -11,63 +11,71 @@ from keras.regularizers import l2
 import gym
 import gym.spaces
 
-import qlearner
-import approximators
+from qlearner import QLearner
+from approximators import DeepQNetwork, TabularQApproximator
 
 # bin_params = [(3, 2.4), (4, 1.5), (8, 0.27), (6, 1.5)]
 bin_params = [(3, 2.4), (3, 1.5), (12, 0.27), (12, 1.5)]
-cart_pole_bins = [pandas.cut([-bound, bound], bins=bin_n, retbins=True)[1][1:-1] for (bin_n, bound) in bin_params]
+cart_pole_bins = [pandas.cut([-bound, bound], bins=bin_n, retbins=True)[1][1:-1]
+    for (bin_n, bound) in bin_params]
+
 def build_state(observation):
     obs_bins_pairs = zip(observation, cart_pole_bins)
     discretized = [numpy.digitize(x=obs, bins=bins) for (obs, bins) in obs_bins_pairs]
     return ";".join(map(str, discretized))
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("--env", type=str, default="CartPole-v0",
                         help="OpenAI Gym environment name.")  # 'MountainCar-v0'
     parser.add_argument("--monitor", action="store_true",
-                        help="Whether to use the Gym monitor. Requires FFMpeg withlibx264.")
+                        help="Whether to use the Gym monitor. "
+                             "Requires FFMpeg with libx264.")
     parser.add_argument("--plot", action="store_true",
                         help="Plot our progress")
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+                        help="Verbosity. 1 for episode details, "
+                             "2 for Q-details.")
+
+
+    parser.add_argument("--episodes", type=int, default=1000,
+                        help="Number of episodes to train for.")
+
+    # discount factor
     parser.add_argument("--gamma", type=float, default=0.99,
                         help="Initial discount factor for utility calculations.")
     parser.add_argument("--gamma_final", type=float, default=None,
-                        help="Gamma post-annealing.")
+                        help="\u03b3, post-annealing.")
 
     # learning rate
     parser.add_argument("--alpha", type=float, default=0.8,
-                        help="Initial learning rate. Only applicable for tabular Q-learning.")
+                        help="Initial learning rate. "
+                             "Only applicable for tabular Q-learning.")
     parser.add_argument("--alpha_min", type=float, default=0.1,
-                        help="Learning rate post-annealing.")
+                        help="Learning rate, post-annealing.")
 
     # exploration parameter
     parser.add_argument("--epsilon", type=float, default=1.0,
                         help="Initial value of \u03b5 as in \u03b5-greedy.")
     parser.add_argument("--epsilon_min", type=float, default=0.01,
-                        help="\u03b5 post-annealing.")
+                        help="\u03b5, post-annealing.")
 
+    # annealing
     parser.add_argument("--anneal", type=int, default=100,
                         help="Number of episodes over which to anneal.")
 
-    parser.add_argument("--deep", action="store_true",
-                        help="Use a deep Q-network.")
-
-    # TODO use this arg
-    # parser.add_argument("--hidden_layers", type=int, nargs="+", default=[100])
-
+    # experience replay
     parser.add_argument("--batch_size", type=int, default=None,
                         help="Specify a minibatch size to use experience replay.")
 
+    # all things deep
+    parser.add_argument("--deep", action="store_true",
+                        help="Use a deep Q-network.")
     parser.add_argument("--delta_clip", type=float, default=10,
-                        help="Gradient clipping threshold.")
-
-    parser.add_argument("--episodes", type=int, default=1000,
-                        help="Number of episodes to train for.")
-
-    parser.add_argument('--verbose', '-v', action='count', default=0,
-                        help="Verbosity. 1 for episode details, 2 for Q-details.")
+                        help="Gradient clipping threshold for DQN Huber loss.")
+    # TODO use this arg
+    # parser.add_argument("--hidden_layers", type=int, nargs="+", default=[100])
 
     args = parser.parse_args()
 
@@ -103,22 +111,28 @@ def main():
     # learning setup
     if args.deep:
         model = keras.models.Sequential([
-            keras.layers.Dense(32, input_shape=(observation_n,), W_regularizer=l2(0.01)),
+            keras.layers.Dense(32,
+                               input_shape=(observation_n,),
+                               W_regularizer=l2(0.01)),
             keras.layers.Activation('relu'),
             keras.layers.Dense(action_n)
         ])
-        approximator = approximators.DeepQNetwork(model, batch_size=args.batch_size, delta_clip=args.delta_clip)
+        approximator = DeepQNetwork(model,
+                                    batch_size=args.batch_size,
+                                    delta_clip=args.delta_clip)
     else:
-        approximator = approximators.TabularQApproximator(action_n, batch_size=args.batch_size)
+        approximator = TabularQApproximator(action_n,
+                                            batch_size=args.batch_size)
 
-    learner = qlearner.QLearner(action_n, approximator,
-                               args.gamma,
-                               gamma_final=(args.gamma if args.gamma_final is None else args.gamma_final),
-                               learning_rate=args.alpha,
-                               learning_rate_min=args.alpha_min,
-                               epsilon=args.epsilon,
-                               epsilon_min=args.epsilon_min,
-                               annealing_time=args.anneal)
+    learner = QLearner(action_n,
+                       approximator,
+                       args.gamma,
+                       gamma_final=(args.gamma if args.gamma_final is None else args.gamma_final),
+                       learning_rate=args.alpha,
+                       learning_rate_min=args.alpha_min,
+                       epsilon=args.epsilon,
+                       epsilon_min=args.epsilon_min,
+                       annealing_time=args.anneal)
 
     n_episodes = args.episodes
     episodes = numpy.array([])
@@ -130,21 +144,21 @@ def main():
     ewmas = []
     ewma_factor = 0.1
 
-    matplotlib.pyplot.ion()
-    matplotlib.pyplot.xlabel("Episode")
-    matplotlib.pyplot.ylabel("Reward")
+    plt.ion()
+    plt.xlabel("Episode")
+    plt.ylabel("Reward")
 
     # LEARN!
     for i_episode in range(n_episodes):
         observation = env.reset()
         episode_reward = 0
+
         for t in range(MAX_T):
             env.render()
-            # print(observation)
 
             state = observation if args.deep else build_state(observation)
 
-            # select actions
+            # q-learning
             action = learner.select_action(state, verbose=(args.verbose >= 2))
             observation, reward, done, info = env.step(action)
             episode_reward += reward
@@ -160,33 +174,35 @@ def main():
 
                 # exponentially weighted moving avg
                 if len(ewmas) == 0:
-                    # ewmas.append(num_timesteps)
                     ewmas.append(episode_reward)
                 else:
-                    ewmas.append(ewmas[-1] * (1 - ewma_factor) + ewma_factor * episode_reward)
+                    new_ewma = ewmas[-1] * (1 - ewma_factor) + ewma_factor * episode_reward
+                    ewmas.append(new_ewma)
 
                 if args.verbose >= 1:
-                    print("Episode {} finished after {} timesteps with reward {}, {} = {:.4}, {} = {:.4}"\
-                        .format(i_episode + 1, num_timesteps, episode_reward,
-                            chr(949), learner.current_epsilon,
-                            chr(945), learner.current_learning_rate))
+                    report_str = "Episode {} took {} timesteps, reward {}, \u03b5 = {:.4}, \u03b3 = {:.4}"
+                    print(report_str.format(i_episode + 1, num_timesteps, episode_reward,
+                            learner.current_epsilon, learner.current_gamma))
 
                 learner.decay(i_episode)
                 break
 
         # plotting, monitoring
         if i_episode % 10 == 0:
-            matplotlib.pyplot.plot(episodes, rewards, color="cornflowerblue", label='rewards')
-            matplotlib.pyplot.plot(episodes, ewmas, color="mediumorchid", label='ewma, $\\alpha=0.1$')
-            matplotlib.pyplot.plot(episodes, past_n_avg, color="darkorchid", label='avg of past {}'.format(past_n))
-            # matplotlib.pyplot.legend()
-            matplotlib.pyplot.draw()
+            plt.plot(episodes, rewards,
+                     color="cornflowerblue", label='rewards')
+            plt.plot(episodes, ewmas,
+                     color="mediumorchid", label='ewma, $\\alpha=0.1$')
+            plt.plot(episodes, past_n_avg,
+                     color="darkorchid", label='avg of past {}'.format(past_n))
+            # plt.legend()
+            plt.draw()
 
         if past_n_avg[-1] > victory_thresh:
             print("Success!")
             break
 
-    matplotlib.pyplot.show()
+    plt.show()
 
     if args.monitor:
         env.monitor.close()
