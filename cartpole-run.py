@@ -16,8 +16,10 @@ from approximators import DeepQNetwork, TabularQApproximator
 
 # bin_params = [(3, 2.4), (4, 1.5), (8, 0.27), (6, 1.5)]
 bin_params = [(3, 2.4), (3, 1.5), (12, 0.27), (12, 1.5)]
-cart_pole_bins = [pandas.cut([-bound, bound], bins=bin_n, retbins=True)[1][1:-1]
-    for (bin_n, bound) in bin_params]
+cart_pole_bins = [pandas.cut([-bound, bound],
+                             bins=bin_n,
+                             retbins=True)[1][1:-1]
+                  for (bin_n, bound) in bin_params]
 
 def build_state(observation):
     obs_bins_pairs = zip(observation, cart_pole_bins)
@@ -25,7 +27,8 @@ def build_state(observation):
     return ";".join(map(str, discretized))
 
 def main():
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument("--env", type=str, default="CartPole-v0",
                         help="OpenAI Gym environment name.")  # 'MountainCar-v0'
@@ -44,7 +47,8 @@ def main():
 
     # discount factor
     parser.add_argument("--gamma", type=float, default=0.99,
-                        help="Initial discount factor for utility calculations.")
+                        help="Initial discount factor "
+                             "for utility calculations.")
     parser.add_argument("--gamma-final", type=float, default=None,
                         help="\u03b3, post-annealing.")
 
@@ -67,13 +71,16 @@ def main():
 
     # experience replay
     parser.add_argument("--batch-size", type=int, default=None,
-                        help="Specify a minibatch size to use experience replay.")
+                        help="Specify a minibatch size "
+                             "to enable experience replay. "
+                             "Required for deep Q-networks.")
 
     # all things deep
     parser.add_argument("--deep", action="store_true",
                         help="Use a deep Q-network.")
     parser.add_argument("--delta-clip", type=float, default=2,
-                        help="Gradient clipping threshold for DQN Huber loss.")
+                        help="Gradient clipping threshold "
+                             "for DQN Huber loss.")
     # TODO use this arg
     parser.add_argument("--hidden-layers", type=int, nargs="+", default=[32])
 
@@ -134,10 +141,11 @@ def main():
         approximator = TabularQApproximator(action_n,
                                             batch_size=args.batch_size)
 
+    final_gamma = args.gamma if args.gamma_final is None else args.gamma_final
     learner = QLearner(action_n,
                        approximator,
                        args.gamma,
-                       gamma_final=(args.gamma if args.gamma_final is None else args.gamma_final),
+                       gamma_final=final_gamma,
                        learning_rate=args.alpha,
                        learning_rate_min=args.alpha_min,
                        epsilon=args.epsilon,
@@ -145,12 +153,11 @@ def main():
                        annealing_time=args.anneal)
 
     n_episodes = args.episodes
-    episodes = numpy.array([])
-    rewards = numpy.array([])
-    past_n_avg = numpy.array([])
 
-    MAX_T = 100000
-
+    # stats
+    episodes = []
+    rewards = []
+    past_n_avg = []
     ewmas = []
     ewma_factor = 0.1
 
@@ -163,8 +170,11 @@ def main():
         observation = env.reset()
         episode_reward = 0
 
-        for t in range(MAX_T):
+        num_timesteps = 0
+        done = False
+        while not done:
             env.render()
+            num_timesteps += 1
 
             state = observation if args.deep else build_state(observation)
 
@@ -175,36 +185,38 @@ def main():
             new_state = observation if args.deep else build_state(observation)
             learner.update_q(state, new_state, action, reward, done)
 
-            if done or t == MAX_T - 1:
-                num_timesteps = t + 1
+        # exponentially weighted moving avg
+        new_ewma = episode_reward if len(ewmas) == 0 \
+            else ewmas[-1] * (1 - ewma_factor) + ewma_factor * episode_reward
+        
+        # stats
+        episodes.append(i_episode)
+        rewards.append(episode_reward)
+        past_n_avg.append(numpy.mean(rewards[-past_n:]))
+        ewmas.append(new_ewma)
 
-                episodes = numpy.append(episodes, i_episode)
-                rewards = numpy.append(rewards, episode_reward)
-                past_n_avg = numpy.append(past_n_avg, numpy.mean(rewards[-past_n:]))
+        if args.verbose >= 1:
+            report_str = "Episode {} took {} timesteps, reward {}, " \
+                         "\u03b5 = {:.4}, \u03b3 = {:.4}"
+            print(report_str.format(i_episode + 1,
+                                    num_timesteps,
+                                    episode_reward,
+                                    learner.current_epsilon,
+                                    learner.current_gamma))
 
-                # exponentially weighted moving avg
-                if len(ewmas) == 0:
-                    ewmas.append(episode_reward)
-                else:
-                    new_ewma = ewmas[-1] * (1 - ewma_factor) + ewma_factor * episode_reward
-                    ewmas.append(new_ewma)
-
-                if args.verbose >= 1:
-                    report_str = "Episode {} took {} timesteps, reward {}, \u03b5 = {:.4}, \u03b3 = {:.4}"
-                    print(report_str.format(i_episode + 1, num_timesteps, episode_reward,
-                            learner.current_epsilon, learner.current_gamma))
-
-                learner.decay(i_episode)
-                break
+        learner.decay(i_episode)
 
         # plotting, monitoring
         if i_episode % 10 == 0:
             plt.plot(episodes, rewards,
-                     color="cornflowerblue", label='rewards')
+                     color="cornflowerblue",
+                     label='rewards')
             plt.plot(episodes, ewmas,
-                     color="mediumorchid", label='ewma, $\\alpha=0.1$')
+                     color="mediumorchid",
+                     label='ewma, $\\alpha=0.1$')
             plt.plot(episodes, past_n_avg,
-                     color="darkorchid", label='avg of past {}'.format(past_n))
+                     color="darkorchid",
+                     label='avg of past {}'.format(past_n))
             # plt.legend()
             plt.draw()
 

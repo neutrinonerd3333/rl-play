@@ -82,6 +82,7 @@ class QLearner:
                                    self.current_gamma,
                                    learning_rate=self.current_learning_rate)
 
+    # TODO rename to "anneal"
     def decay(self, i_episode):
         self.current_epsilon = max(self.epsilon_min,
             self.epsilon - i_episode * self.epsilon_decay_rate)

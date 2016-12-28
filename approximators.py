@@ -126,7 +126,7 @@ class DeepQNetwork(BaseQApproximator):
         outputs = model.outputs
         y_pred_tensor = outputs[0]
 
-        # target (actor) model
+        # clone the given model to get the target (actor) model
         config = {
             'class_name': model.__class__.__name__,
             'config': model.get_config(),
@@ -149,9 +149,13 @@ class DeepQNetwork(BaseQApproximator):
             losses = huber_loss(errors, self.delta_clip)
             return keras.backend.sum(losses * mask, axis=-1)
 
-        loss_tensor = keras.layers.Lambda(masked_huber_loss, output_shape=(1,), name='loss') \
+        loss_tensor = keras.layers.Lambda(masked_huber_loss,
+                                          output_shape=(1,),
+                                          name='loss') \
             ([y_true_tensor, y_pred_tensor, action_tensor])
-        self.trainable_model = keras.models.Model(input=(inputs + [y_true_tensor, action_tensor]), output=loss_tensor)
+        self.trainable_model = keras.models.Model(
+            input=(inputs + [y_true_tensor, action_tensor]),
+            output=loss_tensor)
         sgd_optimizer = keras.optimizers.SGD(lr=0.008, decay=1e-6)
         self.trainable_model.compile(loss=identity, optimizer=sgd_optimizer)
 
