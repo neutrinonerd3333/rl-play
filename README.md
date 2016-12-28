@@ -72,9 +72,9 @@ In its most basic form, the tabular Q-learning algorithm
 with ε-greedy action selection
 takes the following hyperparameters,
 all real numbers between 0 and 1:
-* gamma (a utility discount factor)
-* alpha (a learning rate)
-* epsilon (as in "epsilon-greedy")
+* γ (a utility discount factor)
+* α (a learning rate)
+* ε (as in "ε-greedy")
 
 All these can be specified:
 ```
@@ -83,35 +83,36 @@ python cartpole-run.py --gamma 0.99 --alpha 0.8 --epsilon 0.1
 
 Choosing hyperparameters is tricky business,
 as anyone who has had to wrangle with neural nets knows.
-In particular, alpha is, as all learning rates are,
+In particular, α is, as all learning rates are,
 very finicky.
 Much like learning rates in stochastic gradient descent,
-we can ask alpha to *decay*.
+we can ask α to *decay*.
 Our code implements a linear decay.
-To ask that alpha decay from 0.8 to 0.1 over 100 episodes,
+To ask that α decay from 0.8 to 0.1 over 100 episodes,
 we can write
 ```
 python cartpole-run.py --alpha 0.8 --alpha-min 0.1 --anneal 100
 ```
-and say that we let alpha linearly *anneal* over 100 episodes from 0.8 to 0.1.
+and say that we let α linearly *anneal* over 100 episodes from 0.8 to 0.1.
 
-We can also anneal epsilon in the same way.
+We can also anneal ε in the same way.
 Indeed, we might want our agent to have an exploration-heavy start
 and slowly shift toward exploitation.
-In fact, alpha and epsilon are annealed by default;
-the flags `--gamma` and `--alpha` merely let you specify
-*initial* values of the hyperparameters.
-To get rid of annealing, just set `--gamma-min` to be the same as `--gamma`,
-or likewise for `--alpha-min`.
+In fact, α and ε are annealed by default;
+flags like `--alpha` merely let you specify
+*initial* values of hyperparameters.
+To get rid of annealing for α,
+just set `--alpha-min` to be the same as `--alpha`.
+We can do the same with ε.
 
-You can also anneal gamma,
+You can also anneal γ,
 but the code does not by default.
 You shouldn't really have to do so in the tabular case.
-Indeed, gamma has an intuitive interpretation
+Indeed, γ has an intuitive interpretation
 as a proxy for the expected lifetime of the agent per episode,
-with the characteristic lifetime given by (1 - gamma)^(-1).
+with the characteristic lifetime given by (1 - γ)^(-1).
 So for an agent we expect to live for 100 turns,
-we should approximately set gamma = 0.99.
+we should approximately set γ = 0.99.
 
 Note that the annealing time specified by `--anneal`
 is *shared* by all parameters that we anneal:
@@ -122,8 +123,8 @@ works reasonably well in practice.
 
 It's straightforward to do deep Q-learning:
 just add the `--deep` flag.
-gamma and epsilon still work as before.
-The deep Q-network doesn't care about alpha;
+γ and ε still work as before.
+The deep Q-network doesn't care about α;
 currently, we use one of Keras' stochastic gradient descent optimizers with weight decay.
 
 Once we switch over to using a neural net,
@@ -137,15 +138,15 @@ by running in extra-verbose mode with the `-vv` flag.)
 We could solve these divergence issues
 by cranking up the regularization on the network weights,
 but the resulting algorithm doesn't learn quite well.
-Instead, we use a smaller value of gamma (0.8 seems to work well).
+Instead, we use a smaller value of γ (0.8 seems to work well).
 
-But smaller gamma results in a more myopic agent
+But smaller γ results in a more myopic agent
 that seeks out short-term gain over potential long-term reward.
-We'd still like to use a gamma that tracks the expected length of an episode,
+We'd still like to use a γ that tracks the expected length of an episode,
 as described above.
 Therefore, when we being training the network,
-we start with smaller gamma to prevent divergence,
-then let gamma anneal upwards as we go:
+we start with smaller γ to prevent divergence,
+then let γ anneal upwards as we go:
 ```
 python cartpole-run.py -v --plot --gamma 0.8 --gamma-final 0.99 --anneal 100 --deep
 ```
