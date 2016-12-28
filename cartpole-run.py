@@ -206,7 +206,7 @@ def main():
                                     learner.current_epsilon,
                                     learner.current_gamma))
 
-        learner.decay(i_episode)
+        learner.anneal(i_episode)
 
         # plotting, monitoring
         if i_episode % 10 == 0:

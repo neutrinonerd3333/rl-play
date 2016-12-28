@@ -16,9 +16,9 @@ class QLearner:
                  gamma: float = 0.99,
                  gamma_final: float = 0.99,
                  learning_rate: float = 0.8,
-                 learning_rate_min: float = 0.1,
+                 learning_rate_final: float = 0.1,
                  epsilon: float = 0.6,
-                 epsilon_min: float = 0.01,
+                 epsilon_final: float = 0.01,
                  annealing_time: int = 100) -> None:
         """
         @param gamma: utility discount factor
@@ -27,8 +27,8 @@ class QLearner:
         """
         # preconditions
         assert 0 < gamma <= gamma_final < 1
-        assert 0 < learning_rate_min <= learning_rate <= 1
-        assert 0 < epsilon_min <= epsilon <= 1
+        assert 0 < learning_rate_final <= learning_rate <= 1
+        assert 0 < epsilon_final <= epsilon <= 1
 
         # initialize
         self.gamma = gamma
@@ -37,19 +37,14 @@ class QLearner:
         self.action_n = action_n
 
         self.gamma_final = gamma_final
-        self.epsilon_min = epsilon_min
-        self.learning_rate_min = learning_rate_min
+        self.epsilon_final = epsilon_final
+        self.learning_rate_final = learning_rate_final
         # self.annealing_time = annealing_time
 
-        self.epsilon_decay_rate = (epsilon - epsilon_min) / annealing_time
-        self.learning_rate_decay_rate = \
-            (learning_rate - learning_rate_min) / annealing_time
+        self.epsilon_anneal_rate = (epsilon_final - epsilon) / annealing_time
+        self.learning_rate_anneal_rate = \
+            (learning_rate_final - learning_rate) / annealing_time
         self.gamma_anneal_rate = (gamma_final - gamma) / annealing_time
-
-        # self.epsilon_decay = epsilon_decay
-        # self.epsilon_decay_delay = epsilon_decay_delay
-        # self.learning_rate_decay = learning_rate_decay
-        # self.learning_rate_decay_delay = learning_rate_decay_delay
 
         self.current_gamma = gamma
         self.current_epsilon = epsilon
@@ -84,14 +79,16 @@ class QLearner:
                                    self.current_gamma,
                                    learning_rate=self.current_learning_rate)
 
-    # TODO rename to "anneal"
-    def decay(self, i_episode):
+    def anneal(self, i_episode):
+        """
+        Anneal learning hyperparameters.
+        """
         self.current_epsilon = max(
-            self.epsilon_min,
-            self.epsilon - i_episode * self.epsilon_decay_rate)
+            self.epsilon_final,
+            self.epsilon + i_episode * self.epsilon_anneal_rate)
         self.current_learning_rate = max(
-            self.learning_rate_min,
-            self.learning_rate - i_episode * self.learning_rate_decay_rate)
+            self.learning_rate_final,
+            self.learning_rate + i_episode * self.learning_rate_anneal_rate)
         self.current_gamma = min(
             self.gamma_final,
             self.gamma + i_episode * self.gamma_anneal_rate)
