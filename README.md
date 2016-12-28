@@ -127,6 +127,14 @@ just add the `--deep` flag.
 The deep Q-network doesn't care about α;
 currently, we use one of Keras' stochastic gradient descent optimizers with weight decay.
 
+To specify the architecture of the neural net,
+use the `--hidden-layers` flag.
+If we want two hidden layers with 50 and 10 nodes, respectively,
+we would write
+```
+python cartpole-run.py -plot -v --hidden-layers 50 10
+```
+
 Once we switch over to using a neural net,
 it's very easy to run into divergence issues.
 If you get a warning from numpy saying
@@ -161,9 +169,4 @@ python cartpole-run.py -v --deep --delta-clip 0.5
 Gradient clipping keeps our network robust to outliers,
 which is important in the sorts of noisy environments
 our agent is likely to encounter.
-
-At the moment,
-there's no way to change the architecture of the deep Q-network
-without modifying code.
-Hopefully I'll add that in at some point :/
 
