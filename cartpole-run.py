@@ -21,17 +21,21 @@ cart_pole_bins = [pandas.cut([-bound, bound],
                              retbins=True)[1][1:-1]
                   for (bin_n, bound) in bin_params]
 
+
 def build_state(observation):
     obs_bins_pairs = zip(observation, cart_pole_bins)
-    discretized = [numpy.digitize(x=obs, bins=bins) for (obs, bins) in obs_bins_pairs]
+    discretized = [numpy.digitize(x=obs, bins=bins)
+                   for (obs, bins) in obs_bins_pairs]
     return ";".join(map(str, discretized))
+
 
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    # TODO include allowed envs
     parser.add_argument("--env", type=str, default="CartPole-v0",
-                        help="OpenAI Gym environment name.")  # 'MountainCar-v0'
+                        help="OpenAI Gym environment name.")
     parser.add_argument("--monitor", action="store_true",
                         help="Whether to use the Gym monitor. "
                              "Requires FFMpeg with libx264.")
@@ -40,8 +44,6 @@ def main():
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help="Verbosity. 1 for episode details, "
                              "2 for Q-details.")
-
-
     parser.add_argument("--episodes", type=int, default=1000,
                         help="Number of episodes to train for.")
 
@@ -81,8 +83,8 @@ def main():
     parser.add_argument("--delta-clip", type=float, default=2,
                         help="Gradient clipping threshold "
                              "for DQN Huber loss.")
-    # TODO use this arg
-    parser.add_argument("--hidden-layers", type=int, nargs="+", default=[32])
+    parser.add_argument("--hidden-layers", type=int, nargs="+", default=[32],
+                        help="Numbers of nodes in hidden layers.")
 
     args = parser.parse_args()
 
@@ -188,7 +190,7 @@ def main():
         # exponentially weighted moving avg
         new_ewma = episode_reward if len(ewmas) == 0 \
             else ewmas[-1] * (1 - ewma_factor) + ewma_factor * episode_reward
-        
+
         # stats
         episodes.append(i_episode)
         rewards.append(episode_reward)
