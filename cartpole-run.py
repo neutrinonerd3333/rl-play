@@ -25,33 +25,49 @@ def build_state(observation):
 def main():
     parser = argparse.ArgumentParser()
 
-    # parser.add_argument("--env", type=str, default="CartPole-v0")  # 'MountainCar-v0'
-    parser.add_argument("--monitor", action="store_true")
-    parser.add_argument("--plot", action="store_true")
-    parser.add_argument("--gamma", type=float, default=0.99)
+    parser.add_argument("--env", type=str, default="CartPole-v0",
+                        help="OpenAI Gym environment name.")  # 'MountainCar-v0'
+    parser.add_argument("--monitor", action="store_true",
+                        help="Whether to use the Gym monitor. Requires FFMpeg withlibx264.")
+    parser.add_argument("--plot", action="store_true",
+                        help="Plot our progress")
+    parser.add_argument("--gamma", type=float, default=0.99,
+                        help="Initial discount factor for utility calculations.")
+    parser.add_argument("--gamma_final", type=float, default=None,
+                        help="Gamma post-annealing.")
 
     # learning rate
-    parser.add_argument("--alpha", type=float, default=0.8)
-    # parser.add_argument("--alpha_decay", type=float, default=0.99)
-    # parser.add_argument("--alpha_decay_delay", type=int, default=150)
-    parser.add_argument("--alpha_min", type=float, default=0.1)
+    parser.add_argument("--alpha", type=float, default=0.8,
+                        help="Initial learning rate. Only applicable for tabular Q-learning.")
+    parser.add_argument("--alpha_min", type=float, default=0.1,
+                        help="Learning rate post-annealing.")
 
     # exploration parameter
-    parser.add_argument("--epsilon", type=float, default=1.0)
-    # parser.add_argument("--epsilon_decay", type=float, default=0.99)
-    # parser.add_argument("--epsilon_decay_delay", type=int, default=150)
-    parser.add_argument("--epsilon_min", type=float, default=0.01)
+    parser.add_argument("--epsilon", type=float, default=1.0,
+                        help="Initial value of \u03b5 as in \u03b5-greedy.")
+    parser.add_argument("--epsilon_min", type=float, default=0.01,
+                        help="\u03b5 post-annealing.")
 
-    parser.add_argument("--anneal", type=int, default=100)
+    parser.add_argument("--anneal", type=int, default=100,
+                        help="Number of episodes over which to anneal.")
 
-    parser.add_argument("--deep", action="store_true")
-    parser.add_argument("--hidden_layers", type=int, nargs="+", default=[100])
+    parser.add_argument("--deep", action="store_true",
+                        help="Use a deep Q-network.")
 
-    parser.add_argument("--batch_size", type=int, default=None)
+    # TODO use this arg
+    # parser.add_argument("--hidden_layers", type=int, nargs="+", default=[100])
 
-    parser.add_argument("--episodes", type=int, default=1000)
+    parser.add_argument("--batch_size", type=int, default=None,
+                        help="Specify a minibatch size to use experience replay.")
 
-    parser.add_argument("--env", default="CartPole-v0")
+    parser.add_argument("--delta_clip", type=float, default=10,
+                        help="Gradient clipping threshold.")
+
+    parser.add_argument("--episodes", type=int, default=1000,
+                        help="Number of episodes to train for.")
+
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+                        help="Verbosity. 1 for episode details, 2 for Q-details.")
 
     args = parser.parse_args()
 
@@ -60,6 +76,7 @@ def main():
     env = gym.make(env_name)
     assert isinstance(env.action_space, gym.spaces.Discrete)
     action_n = env.action_space.n
+    observation_n = env.observation_space.shape[0]
 
     victory_thresh = 0
     past_n = 0
@@ -72,6 +89,11 @@ def main():
     elif env_name == "LunarLander-v2":
         victory_thresh = 200
         past_n = 100
+    elif env_name == "MountainCar-v0":
+        victory_thres = -110.0
+        past_n = 100
+    else:
+        raise ValueError("Environment {} not supported".format(env_name))
 
     # monitoring
     if args.monitor:
@@ -81,18 +103,17 @@ def main():
     # learning setup
     if args.deep:
         model = keras.models.Sequential([
-            keras.layers.Dense(32, input_shape=(4,), W_regularizer=l2(0.1)),
-            keras.layers.Activation('relu'),
-            keras.layers.Dense(32, W_regularizer=l2(0.1)),
+            keras.layers.Dense(32, input_shape=(observation_n,), W_regularizer=l2(0.01)),
             keras.layers.Activation('relu'),
             keras.layers.Dense(action_n)
         ])
-        approximator = approximators.DeepQNetwork(model, batch_size=args.batch_size)
+        approximator = approximators.DeepQNetwork(model, batch_size=args.batch_size, delta_clip=args.delta_clip)
     else:
         approximator = approximators.TabularQApproximator(action_n, batch_size=args.batch_size)
 
     learner = qlearner.QLearner(action_n, approximator,
                                args.gamma,
+                               gamma_final=(args.gamma if args.gamma_final is None else args.gamma_final),
                                learning_rate=args.alpha,
                                learning_rate_min=args.alpha_min,
                                epsilon=args.epsilon,
@@ -110,6 +131,8 @@ def main():
     ewma_factor = 0.1
 
     matplotlib.pyplot.ion()
+    matplotlib.pyplot.xlabel("Episode")
+    matplotlib.pyplot.ylabel("Reward")
 
     # LEARN!
     for i_episode in range(n_episodes):
@@ -122,7 +145,7 @@ def main():
             state = observation if args.deep else build_state(observation)
 
             # select actions
-            action = learner.select_action(state)
+            action = learner.select_action(state, verbose=(args.verbose >= 2))
             observation, reward, done, info = env.step(action)
             episode_reward += reward
             new_state = observation if args.deep else build_state(observation)
@@ -142,18 +165,21 @@ def main():
                 else:
                     ewmas.append(ewmas[-1] * (1 - ewma_factor) + ewma_factor * episode_reward)
 
-                print("Episode {} finished after {} timesteps with reward {}, {} = {:.4}, {} = {:.4}"\
-                    .format(i_episode + 1, num_timesteps, episode_reward,
-                        chr(949), learner.current_epsilon,
-                        chr(945), learner.current_learning_rate))
+                if args.verbose >= 1:
+                    print("Episode {} finished after {} timesteps with reward {}, {} = {:.4}, {} = {:.4}"\
+                        .format(i_episode + 1, num_timesteps, episode_reward,
+                            chr(949), learner.current_epsilon,
+                            chr(945), learner.current_learning_rate))
+
                 learner.decay(i_episode)
                 break
 
         # plotting, monitoring
         if i_episode % 10 == 0:
-            matplotlib.pyplot.plot(episodes, rewards, color="cornflowerblue")
-            matplotlib.pyplot.plot(episodes, ewmas, color="mediumorchid")
-            matplotlib.pyplot.plot(episodes, past_n_avg, color="darkorchid")
+            matplotlib.pyplot.plot(episodes, rewards, color="cornflowerblue", label='rewards')
+            matplotlib.pyplot.plot(episodes, ewmas, color="mediumorchid", label='ewma, $\\alpha=0.1$')
+            matplotlib.pyplot.plot(episodes, past_n_avg, color="darkorchid", label='avg of past {}'.format(past_n))
+            # matplotlib.pyplot.legend()
             matplotlib.pyplot.draw()
 
         if past_n_avg[-1] > victory_thresh:

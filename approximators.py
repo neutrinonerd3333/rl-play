@@ -6,6 +6,7 @@ import numpy
 
 import keras.models
 import keras.layers
+import keras.optimizers
 import keras.backend
 import keras.utils.np_utils
 import tensorflow
@@ -38,14 +39,17 @@ class BaseQApproximator:
 
 
 class TabularQApproximator(BaseQApproximator):
-    def __init__(self, action_n, batch_size=None):
+    def __init__(self, action_n: int, batch_size=None):
         self.action_n = action_n
         self.table = collections.defaultdict(lambda: numpy.random.normal(0, 0.1, self.action_n))
         self.history = LearnerMemory()
         self.batch_size = batch_size
 
-    def best_action(self, state: str) -> int:
-        return numpy.argmax(self.table[state])
+    def best_action(self, state: str, verbose: bool = False) -> int:
+        q_table = self.table[state]
+        if verbose:
+            print(q_table)
+        return numpy.argmax(q_table)
 
     def update(self, old_state, new_state, action, reward, terminal, gamma, **kwargs):
         """
@@ -87,9 +91,21 @@ class TabularQApproximator(BaseQApproximator):
             
             self.table[old_state][action] = (1 - learning_rate) * old_q + learning_rate * new_q
 
+def huber_loss(error, clip):
+    squared_loss = keras.backend.square(error) / 2
+    if numpy.isinf(clip):
+        return squared_loss
+    
+    condition = keras.backend.abs(error) < clip
+    linear_loss = clip * (keras.backend.abs(error) - clip / 2)
+
+    return tensorflow.select(condition, squared_loss, linear_loss)
+
+def identity(y_true, y_pred):
+    return y_pred
 
 class DeepQNetwork(BaseQApproximator):
-    def __init__(self, model, batch_size=None, delta_clip=numpy.inf):
+    def __init__(self, model: keras.models.Model, batch_size=None, delta_clip=numpy.inf):
         self.history = LearnerMemory()
         self.batch_size = batch_size
         self.delta_clip = delta_clip
@@ -110,7 +126,6 @@ class DeepQNetwork(BaseQApproximator):
         self.model.compile(optimizer='sgd', loss='mse')
         self.target_model.compile(optimizer='sgd', loss='mse')
 
-
         # assert len(outputs) == 1
         # print(keras.backend.int_shape(y_pred_tensor))
         # assert len(keras.backend.int_shape(y_pred_tensor)) == 1
@@ -118,34 +133,23 @@ class DeepQNetwork(BaseQApproximator):
         y_true_tensor = keras.layers.Input(name='y_true', shape=(self.action_n,))
         action_tensor = keras.layers.Input(name='action_mask', shape=(self.action_n,))
 
-        def huber_loss(error, clip):
-            squared_loss = keras.backend.square(error) / 2
-            if numpy.isinf(clip):
-                return squared_loss
-            
-            condition = keras.backend.abs(x) < clip
-            linear_loss = clip * (K.abs(x) - clip / 2)
-
-            return tensorflow.select(condition, squared_loss, linear_loss)
-
-        def huber_loss_function(args):
+        def masked_huber_loss(args):
             y_true, y_pred, mask = args
             errors = y_true - y_pred
             losses = huber_loss(errors, self.delta_clip)
             return keras.backend.sum(losses * mask, axis=-1)
 
-        def identity(y_true, y_pred):
-            return y_pred
-
-        loss_tensor = keras.layers.Lambda(huber_loss_function, output_shape=(1,), name='loss')([y_true_tensor, y_pred_tensor, action_tensor])
+        loss_tensor = keras.layers.Lambda(masked_huber_loss, output_shape=(1,), name='loss')([y_true_tensor, y_pred_tensor, action_tensor])
         self.trainable_model = keras.models.Model(input=(inputs + [y_true_tensor, action_tensor]), output=loss_tensor)
-        self.trainable_model.compile(loss=identity, optimizer='sgd')
+        sgd_optimizer = keras.optimizers.SGD(lr=0.008, decay=1e-6)
+        self.trainable_model.compile(loss=identity, optimizer=sgd_optimizer)
 
-    def best_action(self, state):
+    def best_action(self, state, verbose=False):
         np_state = numpy.array(state).reshape(1, -1)
         q_vals = self.target_model.predict(np_state)
-        # print("Q-vals in state {}: {}".format(state, q_vals))
-        # print("best action: {}".format(numpy.argmax(q_vals)))
+        if verbose:
+            print("Q-vals in state {}: {}".format(state, q_vals))
+            print("best action: {}".format(numpy.argmax(q_vals)))
         return numpy.argmax(q_vals)
 
     def update(self, old_state, new_state, action, reward, terminal, gamma, **kwargs):
