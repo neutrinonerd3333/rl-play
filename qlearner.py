@@ -3,6 +3,7 @@ import random
 
 import approximators
 
+
 class QLearner:
     """
     A learner implementing the Q-learning algorithm with an arbitrary
@@ -41,7 +42,8 @@ class QLearner:
         # self.annealing_time = annealing_time
 
         self.epsilon_decay_rate = (epsilon - epsilon_min) / annealing_time
-        self.learning_rate_decay_rate = (learning_rate - learning_rate_min) / annealing_time
+        self.learning_rate_decay_rate = \
+            (learning_rate - learning_rate_min) / annealing_time
         self.gamma_anneal_rate = (gamma_final - gamma) / annealing_time
 
         # self.epsilon_decay = epsilon_decay
@@ -84,9 +86,12 @@ class QLearner:
 
     # TODO rename to "anneal"
     def decay(self, i_episode):
-        self.current_epsilon = max(self.epsilon_min,
+        self.current_epsilon = max(
+            self.epsilon_min,
             self.epsilon - i_episode * self.epsilon_decay_rate)
-        self.current_learning_rate = max(self.learning_rate_min,
+        self.current_learning_rate = max(
+            self.learning_rate_min,
             self.learning_rate - i_episode * self.learning_rate_decay_rate)
-        self.current_gamma = min(self.gamma_final,
+        self.current_gamma = min(
+            self.gamma_final,
             self.gamma + i_episode * self.gamma_anneal_rate)
