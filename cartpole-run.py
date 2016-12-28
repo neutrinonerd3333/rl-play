@@ -72,7 +72,7 @@ def main():
     # all things deep
     parser.add_argument("--deep", action="store_true",
                         help="Use a deep Q-network.")
-    parser.add_argument("--delta_clip", type=float, default=10,
+    parser.add_argument("--delta_clip", type=float, default=2,
                         help="Gradient clipping threshold for DQN Huber loss.")
     # TODO use this arg
     # parser.add_argument("--hidden_layers", type=int, nargs="+", default=[100])
