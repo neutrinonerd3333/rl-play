@@ -45,20 +45,20 @@ def main():
     # discount factor
     parser.add_argument("--gamma", type=float, default=0.99,
                         help="Initial discount factor for utility calculations.")
-    parser.add_argument("--gamma_final", type=float, default=None,
+    parser.add_argument("--gamma-final", type=float, default=None,
                         help="\u03b3, post-annealing.")
 
     # learning rate
     parser.add_argument("--alpha", type=float, default=0.8,
                         help="Initial learning rate. "
                              "Only applicable for tabular Q-learning.")
-    parser.add_argument("--alpha_min", type=float, default=0.1,
+    parser.add_argument("--alpha-min", type=float, default=0.1,
                         help="Learning rate, post-annealing.")
 
     # exploration parameter
     parser.add_argument("--epsilon", type=float, default=1.0,
                         help="Initial value of \u03b5 as in \u03b5-greedy.")
-    parser.add_argument("--epsilon_min", type=float, default=0.01,
+    parser.add_argument("--epsilon-min", type=float, default=0.01,
                         help="\u03b5, post-annealing.")
 
     # annealing
@@ -66,16 +66,16 @@ def main():
                         help="Number of episodes over which to anneal.")
 
     # experience replay
-    parser.add_argument("--batch_size", type=int, default=None,
+    parser.add_argument("--batch-size", type=int, default=None,
                         help="Specify a minibatch size to use experience replay.")
 
     # all things deep
     parser.add_argument("--deep", action="store_true",
                         help="Use a deep Q-network.")
-    parser.add_argument("--delta_clip", type=float, default=2,
+    parser.add_argument("--delta-clip", type=float, default=2,
                         help="Gradient clipping threshold for DQN Huber loss.")
     # TODO use this arg
-    # parser.add_argument("--hidden_layers", type=int, nargs="+", default=[100])
+    # parser.add_argument("--hidden-layers", type=int, nargs="+", default=[100])
 
     args = parser.parse_args()
 
