@@ -148,7 +148,9 @@ The deep Q-network is trained with [Huber loss](https://en.wikipedia.org/wiki/Hu
 a variant of squared error
 in which gradients are clipped at some threshold,
 which can be specified as
-    python cartpole-run.py -v --deep --delta_clip 0.5
+```
+python cartpole-run.py -v --deep --delta_clip 0.5
+```
 Gradient clipping keeps our network robust to outliers,
 which is important in the sorts of noisy environments
 our agent is likely to encounter.
