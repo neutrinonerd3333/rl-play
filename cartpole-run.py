@@ -75,7 +75,7 @@ def main():
     parser.add_argument("--delta-clip", type=float, default=2,
                         help="Gradient clipping threshold for DQN Huber loss.")
     # TODO use this arg
-    # parser.add_argument("--hidden-layers", type=int, nargs="+", default=[100])
+    parser.add_argument("--hidden-layers", type=int, nargs="+", default=[32])
 
     args = parser.parse_args()
 
@@ -110,13 +110,23 @@ def main():
 
     # learning setup
     if args.deep:
-        model = keras.models.Sequential([
-            keras.layers.Dense(32,
-                               input_shape=(observation_n,),
-                               W_regularizer=l2(0.01)),
-            keras.layers.Activation('relu'),
-            keras.layers.Dense(action_n)
-        ])
+        # build the model
+        first_hidden_layer = keras.layers.Dense(args.hidden_layers[0],
+                                                input_shape=(observation_n,),
+                                                activation='relu',
+                                                W_regularizer=l2(0.01))
+        other_hidden_layers = [
+            keras.layers.Dense(n_nodes,
+                               activation='relu',
+                               W_regularizer=l2(0.01))
+            for n_nodes in args.hidden_layers[1:]]
+        output_layer = keras.layers.Dense(action_n)
+
+        layers = [first_hidden_layer] + other_hidden_layers + [output_layer]
+        model = keras.models.Sequential(layers)
+
+        # and the approximator
+        assert isinstance(args.batch_size, int)
         approximator = DeepQNetwork(model,
                                     batch_size=args.batch_size,
                                     delta_clip=args.delta_clip)

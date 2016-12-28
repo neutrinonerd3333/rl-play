@@ -114,7 +114,7 @@ def identity(y_true, y_pred):
 
 class DeepQNetwork(BaseQApproximator):
     def __init__(self, model: keras.models.Model,
-                 batch_size=None,
+                 batch_size: int = 32,
                  delta_clip=numpy.inf) -> None:
         self.history = LearnerMemory()
         self.batch_size = batch_size
