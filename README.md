@@ -18,13 +18,17 @@ All of these dependencies can be `pip install`-ed.
 ## Example usage
 
 The command
-    python cartpole-run.py -v
+```
+python cartpole-run.py -v
+```
 runs the tabular Q-learning algorithm with default parameters
 on the default CartPole-v0 environment,
 printing out per-episode information.
 
 Adding the `--plot` flag
-    python cartpole-run.py -v --plot
+```
+python cartpole-run.py -v --plot
+```
 will give us a plot of reward as a function of episode
 (an episode is a single play-through of whatever game we're playing).
 The resulting plot also displays
@@ -33,19 +37,25 @@ and the past-100 episode average of the reward plotted alongside.
 
 To train on a different environment,
 use the `--env` flag:
-    python cartpole-run.py -v --env CartPole-v1
+```
+python cartpole-run.py -v --env CartPole-v1
+```
 Currently, the learning code only works well on the CartPole environments,
 although MountainCar-v0 is also supported.
 
 To train for more episodes, just use the `--episodes` flag:
-    python cartpole-run.py -v --episodes 1337
+```
+python cartpole-run.py -v --episodes 1337
+```
 
 We can also set training hyperparameters with flags:
     python cartpole-run.py --alpha 0.6 --epsilon 0.1 --anneal 100
 see below for details.
 
 Running
-    python cartpole-run.py -h
+```
+python cartpole-run.py -h
+```
 gives you a useful help message :)
 
 ## Details
@@ -63,7 +73,9 @@ all real numbers between 0 and 1:
 * epsilon (as in "epsilon-greedy")
 
 All these can be specified:
-    python cartpole-run.py --gamma 0.99 --alpha 0.8 --epsilon 0.1
+```
+python cartpole-run.py --gamma 0.99 --alpha 0.8 --epsilon 0.1
+```
 
 Choosing hyperparameters is tricky business,
 as anyone who has had to wrangle with neural nets knows.
@@ -74,7 +86,9 @@ we can ask alpha to *decay*.
 Our code implements a linear decay.
 To ask that alpha decay from 0.8 to 0.1 over 100 episodes,
 we can write
-    python cartpole-run.py --alpha 0.8 --alpha_min 0.1 --anneal 100
+```
+python cartpole-run.py --alpha 0.8 --alpha_min 0.1 --anneal 100
+```
 and say that we let alpha linearly *anneal* over 100 episodes from 0.8 to 0.1.
 
 We can also anneal epsilon in the same way.
@@ -126,7 +140,9 @@ as described above.
 Therefore, when we being training the network,
 we start with smaller gamma to prevent divergence,
 then let gamma anneal upwards as we go:
-    python cartpole-run.py -v --plot --gamma 0.8 --gamma_final 0.99 --anneal 100 --deep
+```
+python cartpole-run.py -v --plot --gamma 0.8 --gamma_final 0.99 --anneal 100 --deep
+```
 
 The deep Q-network is trained with [Huber loss](https://en.wikipedia.org/wiki/Huber_loss),
 a variant of squared error
