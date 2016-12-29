@@ -171,9 +171,9 @@ def main():
     for i_episode in range(n_episodes):
         observation = env.reset()
         episode_reward = 0
-
         num_timesteps = 0
         done = False
+
         while not done:
             env.render()
             num_timesteps += 1
