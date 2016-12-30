@@ -205,3 +205,9 @@ python cartpole-run.py -v --deep --delta-clip 10
 Gradient clipping keeps our network robust to outliers,
 which is important in the sorts of noisy environments
 our agent is likely to encounter.
+
+
+## wishlist
+
+* Double Q learning to combat overoptimism and divergence issues caused by positive feedback loops; with double Q-learning we could potentially use more representative values of γ.
+* prioritized experience replay
