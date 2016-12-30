@@ -24,7 +24,7 @@ cart_pole_bins = [pandas.cut([-bound, bound],
 
 def build_state(observation):
     obs_bins_pairs = zip(observation, cart_pole_bins)
-    return tuple(numpy.digitize(x=obs, bins=bins)
+    return tuple(numpy.asscalar(numpy.digitize(x=obs, bins=bins))
                    for (obs, bins) in obs_bins_pairs)
 
 
