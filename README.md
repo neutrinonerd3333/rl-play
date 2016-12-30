@@ -1,5 +1,9 @@
 # rl-play
 
+(I apologize in advance for silly typos and grammar mistakes
+in this README.
+I'll proofread this someday :/)
+
 This repository contains code I wrote to play with reinforcement learning.
 The code is far from production quality, but it works! (Mostly.)
 Currently, the code supports tabular and deep Q-learning.
