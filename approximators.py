@@ -175,7 +175,7 @@ class DeepQNetwork(BaseQApproximator):
         q_vals = self.target_model.predict(np_state)
         # check divergence
         if numpy.any(numpy.isnan(q_vals)):
-            raise RuntimeError("Q-network diverged! Try smaller \u03b3?")
+            raise RuntimeError("\033[1;31m Q-network diverged! Try smaller \u03b3? \033[0;30m")
         if verbose:
             print("Q-vals in state {}: {}".format(state, q_vals))
             print("best action: {}".format(numpy.argmax(q_vals)))
