@@ -57,13 +57,13 @@ def main():
     parser.add_argument("--alpha", type=float, default=0.8,
                         help="Initial learning rate. "
                              "Only applicable for tabular Q-learning.")
-    parser.add_argument("--alpha-min", type=float, default=0.1,
+    parser.add_argument("--alpha-final", type=float, default=0.1,
                         help="Learning rate, post-annealing.")
 
     # exploration parameter
     parser.add_argument("--epsilon", type=float, default=1.0,
                         help="Initial value of \u03b5 as in \u03b5-greedy.")
-    parser.add_argument("--epsilon-min", type=float, default=0.01,
+    parser.add_argument("--epsilon-final", type=float, default=0.01,
                         help="\u03b5, post-annealing.")
 
     # annealing
@@ -79,7 +79,7 @@ def main():
     # all things deep
     parser.add_argument("--deep", action="store_true",
                         help="Use a deep Q-network.")
-    parser.add_argument("--delta-clip", type=float, default=2,
+    parser.add_argument("--delta-clip", type=float, default=10,
                         help="Gradient clipping threshold "
                              "for DQN Huber loss.")
     parser.add_argument("--hidden-layers", type=int, nargs="+", default=[32],
@@ -131,10 +131,12 @@ def main():
         output_layer = keras.layers.Dense(action_n)
 
         layers = [first_hidden_layer] + other_hidden_layers + [output_layer]
+        print("layers: {}".format(layers))
         model = keras.models.Sequential(layers)
 
         # and the approximator
-        assert isinstance(args.batch_size, int)
+        if not isinstance(args.batch_size, int):
+            raise ValueError("Must specify --batch-size with --deep!")
         approximator = DeepQNetwork(model,
                                     batch_size=args.batch_size,
                                     delta_clip=args.delta_clip)
@@ -148,9 +150,9 @@ def main():
                        args.gamma,
                        gamma_final=final_gamma,
                        learning_rate=args.alpha,
-                       learning_rate_min=args.alpha_min,
+                       learning_rate_final=args.alpha_final,
                        epsilon=args.epsilon,
-                       epsilon_min=args.epsilon_min,
+                       epsilon_final=args.epsilon_final,
                        annealing_time=args.anneal)
 
     n_episodes = args.episodes

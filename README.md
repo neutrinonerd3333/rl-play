@@ -4,6 +4,7 @@ This repository contains code I wrote to play with reinforcement learning.
 The code is far from production quality, but it works! (Mostly.)
 Currently, the code supports tabular and deep Q-learning.
 
+
 ## Dependencies
 
 This code requires:
@@ -15,13 +16,29 @@ This code requires:
 
 All of these dependencies can be `pip install`-ed.
 
+
+## Just let me run the code already
+
+If you're just starting out with this code,
+you probably want to see it work really well.
+In that case, run
+```
+python cartpole-run.py --plot --epsilon 1 --epsilon-final .01 --anneal 100 --episodes 2000 --batch-size 32 --hidden-layers 32 --gamma 0.9 --gamma-final 0.95 --deep -v
+```
+or better yet:
+```
+python cartpole-run.py --plot --epsilon 1 --epsilon-final .01 --anneal 200 --episodes 2000 --batch-size 64 --gamma 0.8 --gamma-final 0.98 --deep -v --env "CartPole-v1"
+```
+Read on to find out what all these flags signify.
+
 ## Example usage
 
 The command
 ```
 python cartpole-run.py -v
 ```
-runs the tabular Q-learning algorithm with default parameters
+runs the tabular Q-learning algorithm
+in its most basic incarnation with default parameters
 on the default CartPole-v0 environment,
 printing out per-episode information.
 
@@ -43,7 +60,8 @@ python cartpole-run.py -v --env CartPole-v1
 Currently, the learning code only works well on the CartPole environments,
 although MountainCar-v0 is also supported.
 
-To train for more episodes, just use the `--episodes` flag:
+To increase the episode limit beyond the default 1000,
+just use the `--episodes` flag:
 ```
 python cartpole-run.py -v --episodes 1337
 ```
@@ -52,13 +70,14 @@ We can also set training hyperparameters with flags:
 ```
 python cartpole-run.py --alpha 0.6 --epsilon 0.1 --anneal 100
 ```
-see below for details.
+(see below for details).
 
 Running
 ```
 python cartpole-run.py -h
 ```
 gives you a useful help message :)
+
 
 ## Details
 
@@ -119,6 +138,17 @@ is *shared* by all parameters that we anneal:
 it seems that annealing all parameters together
 works reasonably well in practice.
 
+Still, our agent still learns quite slowly.
+One way to fix this issue is to use *experience replay*,
+where we store up our experience
+(roughly speaking: the states we transitioned from and to,
+the action we chose,
+and the reward we earned)
+and use it to update our Q tables later on.
+To enable experience replay,
+specify `--batch-size` with the amount of experience
+we'd like to replay on each timestep.
+
 ### Deep Q-learning
 
 It's straightforward to do deep Q-learning:
@@ -127,12 +157,18 @@ just add the `--deep` flag.
 The deep Q-network doesn't care about α;
 currently, we use one of Keras' stochastic gradient descent optimizers with weight decay.
 
+With deep Q-learning, it's important to use experience replay.
+Neural net training implicitly rests on the assumption
+that the data we feed in is i.i.d.,
+which definitely isn't the case if we naively ran the Q-learning algorithm.
+Thus, the code requires the `--batch-size` with `--deep`.
+
 To specify the architecture of the neural net,
 use the `--hidden-layers` flag.
 If we want two hidden layers with 50 and 10 nodes, respectively,
 we would write
 ```
-python cartpole-run.py -plot -v --hidden-layers 50 10
+python cartpole-run.py --deep --batch-size 32 --plot -v --hidden-layers 50 10
 ```
 
 Once we switch over to using a neural net,
@@ -156,7 +192,7 @@ Therefore, when we being training the network,
 we start with smaller γ to prevent divergence,
 then let γ anneal upwards as we go:
 ```
-python cartpole-run.py -v --plot --gamma 0.8 --gamma-final 0.99 --anneal 100 --deep
+python cartpole-run.py -v --plot --gamma 0.8 --gamma-final 0.95 --anneal 100 --deep
 ```
 
 The deep Q-network is trained with [Huber loss](https://en.wikipedia.org/wiki/Huber_loss),
@@ -164,9 +200,8 @@ a variant of squared error
 in which gradients are clipped at some threshold,
 which can be specified as
 ```
-python cartpole-run.py -v --deep --delta-clip 0.5
+python cartpole-run.py -v --deep --delta-clip 10
 ```
 Gradient clipping keeps our network robust to outliers,
 which is important in the sorts of noisy environments
 our agent is likely to encounter.
-
