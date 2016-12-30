@@ -110,18 +110,23 @@ Our code implements a linear decay.
 To ask that α decay from 0.8 to 0.1 over 100 episodes,
 we can write
 ```
-python cartpole-run.py --alpha 0.8 --alpha-min 0.1 --anneal 100
+python cartpole-run.py --alpha 0.8 --alpha-final 0.1 --anneal 100
 ```
 and say that we let α linearly *anneal* over 100 episodes from 0.8 to 0.1.
 
-We can also anneal ε in the same way.
-Indeed, we might want our agent to have an exploration-heavy start
-and slowly shift toward exploitation.
-In fact, α and ε are annealed by default;
-flags like `--alpha` merely let you specify
+We might also want to anneal ε,
+since we might want an agent to have an exploration-heavy start
+before slowly shifting toward exploitation.
+To do so, use the `--epsilon` and `--epsilon-final` flags:
+```
+python cartpole-run.py --alpha 0.8 --alpha-final 0.1 --epsilon 1 --epsilon-final 0.01 --anneal 100 --plot -v
+```
+
+In fact, α and ε are annealed by default.
+Flags like `--alpha` merely let you specify
 *initial* values of hyperparameters.
 To get rid of annealing for α,
-just set `--alpha-min` to be the same as `--alpha`.
+just set `--alpha-final` to be the same as `--alpha`.
 We can do the same with ε.
 
 You can also anneal γ,
@@ -133,10 +138,14 @@ with the characteristic lifetime given by (1 - γ)^(-1).
 So for an agent we expect to live for 100 turns,
 we should approximately set γ = 0.99.
 
+Moral: we should think of γ less as a hyperparameter
+and more as a parameter given to use by the environment we're in.
+
 Note that the annealing time specified by `--anneal`
 is *shared* by all parameters that we anneal:
 it seems that annealing all parameters together
 works reasonably well in practice.
+(I might change this behavior in the future.)
 
 Still, our agent still learns quite slowly.
 One way to fix this issue is to use *experience replay*,
@@ -148,6 +157,10 @@ and use it to update our Q tables later on.
 To enable experience replay,
 specify `--batch-size` with the amount of experience
 we'd like to replay on each timestep.
+A good about is 32:
+```
+python cartpole-run.py --alpha 0.8 --alpha-final 0.1 --epsilon 1 --epsilon-final 0.01 --anneal 100 --batch-size 32 --plot -v
+```
 
 ### Deep Q-learning
 
@@ -172,12 +185,13 @@ python cartpole-run.py --deep --batch-size 32 --plot -v --hidden-layers 50 10
 ```
 
 Once we switch over to using a neural net,
-it's very easy to run into divergence issues.
-If you get a warning from numpy saying
-that multiplication isn't defined for the given operands,
-it's likely that the deep Q-network is producing `nan` values.
-(You can check the output of the Q-network
-by running in extra-verbose mode with the `-vv` flag.)
+it's very easy to run into divergence issues;
+to see divergence very quickly, use a large value of γ:
+```
+python cartpole-run.py --plot --anneal 100 --batch-size 32 --gamma 0.999 --deep -vv
+```
+(The `-vv` flag puts us in extra-verbose mode,
+letting us check on the values produced by the network.)
 
 We could solve these divergence issues
 by cranking up the regularization on the network weights,
@@ -192,7 +206,7 @@ Therefore, when we being training the network,
 we start with smaller γ to prevent divergence,
 then let γ anneal upwards as we go:
 ```
-python cartpole-run.py -v --plot --gamma 0.8 --gamma-final 0.95 --anneal 100 --deep
+python cartpole-run.py -v --plot --gamma 0.8 --gamma-final 0.95 --anneal 100 --deep --batch-size 32
 ```
 
 The deep Q-network is trained with [Huber loss](https://en.wikipedia.org/wiki/Huber_loss),
@@ -200,7 +214,7 @@ a variant of squared error
 in which gradients are clipped at some threshold,
 which can be specified as
 ```
-python cartpole-run.py -v --deep --delta-clip 10
+python cartpole-run.py -v --deep --delta-clip 10 --batch-size 32
 ```
 Gradient clipping keeps our network robust to outliers,
 which is important in the sorts of noisy environments
