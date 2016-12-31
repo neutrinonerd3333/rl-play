@@ -27,13 +27,12 @@ If you're just starting out with this code,
 you probably want to see it work really well.
 In that case, run
 ```
-python cartpole-run.py --plot --epsilon 1 --epsilon-final .01 --anneal 100 --episodes 2000 --batch-size 32 --hidden-layers 32 --gamma 0.9 --gamma-final 0.95 --deep -v
-```
-or better yet:
-```
 python cartpole-run.py --plot --epsilon 1 --epsilon-final .01 --anneal 200 --episodes 2000 --batch-size 64 --gamma 0.8 --gamma-final 0.98 --deep -v --env "CartPole-v1"
 ```
 Read on to find out what all these flags signify.
+
+*Hint: the code runs significantly faster
+if you move the animation screen off-screen.*
 
 ## Example usage
 
