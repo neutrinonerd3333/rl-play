@@ -84,6 +84,8 @@ def main():
                              "for DQN Huber loss.")
     parser.add_argument("--hidden-layers", type=int, nargs="+", default=[32],
                         help="Numbers of nodes in hidden layers.")
+    parser.add_argument("--target-update", type=int, default=100,
+                        help="Number of timesteps between updates of target network.")
 
     args = parser.parse_args()
 
@@ -139,7 +141,8 @@ def main():
             raise ValueError("Must specify --batch-size with --deep!")
         approximator = DeepQNetwork(model,
                                     batch_size=args.batch_size,
-                                    delta_clip=args.delta_clip)
+                                    delta_clip=args.delta_clip,
+                                    update_freq=args.target_update)
     else:
         approximator = TabularQApproximator(action_n,
                                             batch_size=args.batch_size)

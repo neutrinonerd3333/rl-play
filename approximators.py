@@ -124,10 +124,13 @@ def identity(y_true, y_pred):
 class DeepQNetwork(BaseQApproximator):
     def __init__(self, model: keras.models.Model,
                  batch_size: int = 32,
+                 update_freq: int = 100,
                  delta_clip=numpy.inf) -> None:
         self.history = LearnerMemory()
         self.batch_size = batch_size
         self.delta_clip = delta_clip
+        self._update_count = 0
+        self._update_freq = update_freq
 
         # input model
         self.model = model
@@ -190,8 +193,9 @@ class DeepQNetwork(BaseQApproximator):
                **kwargs):
         assert 0 <= gamma < 1
 
-        # add to history
+        # add to history, increment counter
         self.history.append((old_state, new_state, action, reward, terminal))
+        self._update_count = (self._update_count + 1) % self._update_freq
 
         experience = self.history.sample(self.batch_size)
         cur_batch_size = len(experience)
@@ -216,4 +220,6 @@ class DeepQNetwork(BaseQApproximator):
 
         self.trainable_model.train_on_batch(
             [olds, q_val_array, acts_one_hot], dummy_targets)
-        self.target_model.set_weights(self.model.get_weights())
+
+        if self._update_count == 0:
+            self.target_model.set_weights(self.model.get_weights())
