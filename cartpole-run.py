@@ -75,6 +75,8 @@ def main():
                         help="Specify a minibatch size "
                              "to enable experience replay. "
                              "Required for deep Q-networks.")
+    parser.add_argument("--prioritize", action="store_true",
+                        help="Use prioritized experience replay.")
 
     # all things deep
     parser.add_argument("--deep", action="store_true",
@@ -84,7 +86,7 @@ def main():
                              "for DQN Huber loss.")
     parser.add_argument("--hidden-layers", type=int, nargs="+", default=[32],
                         help="Numbers of nodes in hidden layers.")
-    parser.add_argument("--target-update", type=int, default=100,
+    parser.add_argument("--target-update", type=int, default=50,
                         help="Number of timesteps between updates of target network.")
 
     args = parser.parse_args()
@@ -142,8 +144,10 @@ def main():
         approximator = DeepQNetwork(model,
                                     batch_size=args.batch_size,
                                     delta_clip=args.delta_clip,
-                                    update_freq=args.target_update)
+                                    update_freq=args.target_update,
+                                    prioritize=args.prioritize)
     else:
+        # TODO add prioritization support to tabular approximator
         approximator = TabularQApproximator(action_n,
                                             batch_size=args.batch_size)
 

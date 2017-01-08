@@ -1,5 +1,5 @@
+import random
 import numpy
-
 
 def parent(ind):
     return (ind - 1) // 2
@@ -38,10 +38,17 @@ class BinaryHeap:
         ind = len(self._array) - 1
         self._up_heap(ind)
 
-    def decrease_key(self, ind, priority):
+    def change_priority(self, ind, priority):
         cur_item = self._array[ind].name()
+        cur_priority = self._array[ind].key()
+        if cur_priority == priority:
+            return
+
         self._array[ind] = HeapElement(cur_item, priority)
-        self._heapify(ind)
+        if cur_priority > priority:
+            self._heapify(ind)
+        elif cur_priority < priority:
+            self._up_heap(ind)
 
     def _up_heap(self, ind):
         if ind == 0:
@@ -83,6 +90,19 @@ class BinaryHeap:
 
     def sort(self):
         self._array.sort(key=lambda x: -x.key())
+
+    def sample(self, n):
+        assert len(self._array) >= n
+        # TODO: prioritize!
+        # TODO continue debugging
+        # python cartpole-run.py --deep --batch-size 32 --gamma 0.9 --gamma-final 0.99 --anneal 100 -v --prioritize
+        return list(map(lambda x: (x[0], x[1].name()), random.sample(enumerate(self._array), n)))
+
+    def max_priority(self):
+        try:
+            return self._array[0].key()
+        except IndexError:
+            return 1
 
     def __len__(self):
         return len(self._array)

@@ -11,18 +11,46 @@ import keras.backend
 import keras.utils.np_utils
 import tensorflow
 
+from binaryheap import BinaryHeap
+
 # LOTS of inspiration from https://github.com/matthiasplappert/keras-rl/
 
 
 class LearnerMemory:
-    def __init__(self):
+    def __init__(self, memory_size=1e+6):
         self.history = []
+        self.memory_size = memory_size
 
     def append(self, item):
+        if len(self.history) == self.memory_size:
+            self.history.pop(0)
         self.history.append(item)
 
     def sample(self, sample_size):
-        return random.sample(self.history, min(sample_size, len(self.history)))
+        return random.sample(self.history, sample_size)
+
+    def __len__(self):
+        return len(self.history)
+
+
+class HeapMemory(LearnerMemory):
+    def __init__(self, memory_size=1e+6):
+        self.history = BinaryHeap()
+        self.memory_size = memory_size
+
+    def append(self, item):
+        if len(self.history) == self.memory_size:
+            self.history.trim()
+        self.history.insert(item, self.history.max_priority())
+
+    def sample(self, sample_size: int):
+        return self.history.sample(sample_size)
+
+    def change_priority(self, ind, priority):
+        self.history.change_priority(ind, priority)
+
+    def __len__(self):
+        return len(self.history)
 
 
 class BaseQApproximator:
@@ -124,11 +152,15 @@ def identity(y_true, y_pred):
 class DeepQNetwork(BaseQApproximator):
     def __init__(self, model: keras.models.Model,
                  batch_size: int = 32,
-                 update_freq: int = 100,
-                 delta_clip=numpy.inf) -> None:
-        self.history = LearnerMemory()
+                 update_freq: int = 50,
+                 delta_clip=numpy.inf,
+                 memory_size=1e+7,
+                 prioritize=False) -> None:
+        self.history = HeapMemory(memory_size=memory_size) \
+            if prioritize else LearnerMemory(memory_size=memory_size)
         self.batch_size = batch_size
         self.delta_clip = delta_clip
+        self.prioritize = prioritize
         self._update_count = 0
         self._update_freq = update_freq
 
@@ -197,11 +229,16 @@ class DeepQNetwork(BaseQApproximator):
         self.history.append((old_state, new_state, action, reward, terminal))
         self._update_count = (self._update_count + 1) % self._update_freq
 
-        experience = self.history.sample(self.batch_size)
-        cur_batch_size = len(experience)
+        # sample from history
+        cur_batch_size = min(self.batch_size, len(self.history))
+        if self.prioritize:
+            heap_inds, experience = self.history.sample(cur_batch_size)
+        else:
+            experience = self.history.sample(cur_batch_size)
         olds, news, acts, rewards, terminalness = \
             [numpy.array([tup[i] for tup in experience]) for i in range(5)]
 
+        # compute target values
         discounted_futures = \
             gamma * numpy.max(self.target_model.predict_on_batch(news),
                               axis=1)
@@ -210,6 +247,13 @@ class DeepQNetwork(BaseQApproximator):
         q_val_array = numpy.zeros((cur_batch_size, self.action_n))
         for ind in range(cur_batch_size):
             q_val_array[ind][acts[ind]] = q_vals[ind]
+
+        if self.prioritize:
+            current_q_vals = self.target_model.predict_on_batch(olds)
+            current_q_vals_action_selected = numpy.diagonal(numpy.take(current_q_vals, acts, axis=1))
+            td_errors = q_vals - current_q_vals_action_selected
+            for heap_ind, td_err in zip([heap_inds, td_errors]):
+                self.history.change_priority(heap_ind, td_err)
 
         # update our networks
         acts_one_hot = keras.utils.np_utils.to_categorical(acts,
