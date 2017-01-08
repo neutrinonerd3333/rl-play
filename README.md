@@ -226,5 +226,7 @@ our agent is likely to encounter.
 
 ## wishlist
 
+* actually use the --plot option (currently does nothing)
+* document update frequency for DQN
 * Double Q learning to combat overoptimism and divergence issues caused by positive feedback loops; with double Q-learning we could potentially use more representative values of γ.
 * prioritized experience replay
