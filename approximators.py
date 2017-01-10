@@ -49,8 +49,22 @@ class HeapMemory(LearnerMemory):
     def change_priority(self, ind, priority):
         self.history.change_priority(ind, priority)
 
+    def sort(self):
+        self.history.sort()
+
     def __len__(self):
         return len(self.history)
+
+
+class MemoryAtom:
+    """
+    A wrapper for a tuple.
+    """
+    def __init__(self, tuple):
+        self._tuple = tuple
+
+    def tuple(self):
+        return self._tuple
 
 
 class BaseQApproximator:
@@ -108,10 +122,10 @@ class TabularQApproximator(BaseQApproximator):
         # experience replay
         if self.batch_size is not None:
             self.history.append(
-                (old_state, new_state, action, reward, terminal))
+                MemoryAtom((old_state, new_state, action, reward, terminal)))
 
             experience = self.history.sample(self.batch_size)
-            olds, news, acts, rewards, terminalness = list(zip(experience))
+            olds, news, acts, rewards, terminalness = list(zip(map(lambda x: x.tuple, experience)))
 
             old_q = numpy.array([self.table[old][act]
                                  for (old, _, act, _, _) in experience])
@@ -154,7 +168,7 @@ class DeepQNetwork(BaseQApproximator):
                  batch_size: int = 32,
                  update_freq: int = 50,
                  delta_clip=numpy.inf,
-                 memory_size=1e+7,
+                 memory_size=1e+6,
                  prioritize=False) -> None:
         self.history = HeapMemory(memory_size=memory_size) \
             if prioritize else LearnerMemory(memory_size=memory_size)
@@ -226,17 +240,14 @@ class DeepQNetwork(BaseQApproximator):
         assert 0 <= gamma < 1
 
         # add to history, increment counter
-        self.history.append((old_state, new_state, action, reward, terminal))
-        self._update_count = (self._update_count + 1) % self._update_freq
+        self.history.append(MemoryAtom((old_state, new_state, action, reward, terminal)))
+        self._update_count += 1
 
         # sample from history
         cur_batch_size = min(self.batch_size, len(self.history))
-        if self.prioritize:
-            heap_inds, experience = self.history.sample(cur_batch_size)
-        else:
-            experience = self.history.sample(cur_batch_size)
+        experience = self.history.sample(cur_batch_size)
         olds, news, acts, rewards, terminalness = \
-            [numpy.array([tup[i] for tup in experience]) for i in range(5)]
+            [numpy.array([atom.tuple()[i] for atom in experience]) for i in range(5)]
 
         # compute target values
         discounted_futures = \
@@ -251,9 +262,11 @@ class DeepQNetwork(BaseQApproximator):
         if self.prioritize:
             current_q_vals = self.target_model.predict_on_batch(olds)
             current_q_vals_action_selected = numpy.diagonal(numpy.take(current_q_vals, acts, axis=1))
-            td_errors = q_vals - current_q_vals_action_selected
-            for heap_ind, td_err in zip([heap_inds, td_errors]):
-                self.history.change_priority(heap_ind, td_err)
+            td_errors_abs = numpy.abs(q_vals - current_q_vals_action_selected)
+            for atom, td_err_abs in zip(experience, td_errors_abs):
+                self.history.change_priority(atom, td_err_abs)
+            if self._update_count % 1000 == 0:
+                self.history.sort()
 
         # update our networks
         acts_one_hot = keras.utils.np_utils.to_categorical(acts,
@@ -265,5 +278,5 @@ class DeepQNetwork(BaseQApproximator):
         self.trainable_model.train_on_batch(
             [olds, q_val_array, acts_one_hot], dummy_targets)
 
-        if self._update_count == 0:
+        if self._update_count % self._update_freq == 0:
             self.target_model.set_weights(self.model.get_weights())
