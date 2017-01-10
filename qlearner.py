@@ -92,3 +92,4 @@ class QLearner:
         self.current_gamma = min(
             self.gamma_final,
             self.gamma + i_episode * self.gamma_anneal_rate)
+        return (self.current_gamma, self.current_epsilon, self.current_learning_rate)

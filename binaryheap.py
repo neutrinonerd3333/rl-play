@@ -178,6 +178,8 @@ class BinaryHeap:
     def sample(self, n):
         assert len(self._array) >= n
 
+        # TODO calculate and use importance sampling weights
+        
         partitions = pairwise(itertools.chain([0], rank_based_partition(len(self._array), n)))
         return [random.choice(self._array[left:right])
             for (left, right) in partitions]

@@ -38,8 +38,8 @@ def main():
     parser.add_argument("--monitor", action="store_true",
                         help="Whether to use the Gym monitor. "
                              "Requires FFMpeg with libx264.")
-    parser.add_argument("--plot", action="store_true",
-                        help="Plot our progress")
+    parser.add_argument("--plot-update-freq", type=int, default=10,
+                        help="The number of episodes between plot updates.")
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help="Verbosity. 1 for episode details, "
                              "2 for Q-details.")
@@ -171,13 +171,60 @@ def main():
     ewmas = []
     ewma_factor = 0.1
 
+    gammas = []
+    epsilons = []
+
     plt.ion()
-    plt.xlabel("Episode")
-    plt.ylabel("Reward")
+    fig, axarr = plt.subplots(2, sharex=True)
+    perf_ax, hyperparam_ax = axarr
+
+    hyperparam_ax.set_xlabel("Episode")
+    hyperparam_ax.set_ylabel("Value")
+    perf_ax.set_ylabel("Reward")
+
+    reward_line, = perf_ax.plot(episodes, rewards,
+                     color="cornflowerblue",
+                     label='rewards')
+    avg_line,    = perf_ax.plot(episodes, past_n_avg,
+                     color="mediumorchid",
+                     label='ewma ($\\alpha={}$)'.format(ewma_factor))
+    ewma_line,   = perf_ax.plot(episodes, ewmas,
+                     color="darkorchid",
+                     label='avg of past {}'.format(past_n))
+
+    gamma_line,  = hyperparam_ax.plot(episodes, gammas,
+                     color="green",
+                     label="$\\gamma$")
+    eps_line,    = hyperparam_ax.plot(episodes, epsilons,
+                     color="orange",
+                     label="$\\varepsilon$")
+
+    perf_ax.legend(loc="upper left", fontsize='small')
+    hyperparam_ax.legend(fontsize='small')
+
+    lines = [reward_line, avg_line, ewma_line, gamma_line, eps_line]
+    ydatas = [rewards, past_n_avg, ewmas, gammas, epsilons]
+
+    def update_plots():
+        for (l, y) in zip(lines, ydatas):
+            l.set_xdata(episodes)
+            l.set_ydata(y)
+
+        # update limits and views
+        perf_ax.relim()
+        hyperparam_ax.relim()
+        perf_ax.autoscale_view(True,True,True)
+        hyperparam_ax.autoscale_view(True,True,True)
+
+        # rerender
+        plt.draw()
+
 
     # LEARN!
     for i_episode in range(n_episodes):
         observation = env.reset()
+        cur_gamma, cur_epsilon, cur_alpha = learner.anneal(i_episode)
+
         episode_reward = 0
         num_timesteps = 0
         done = False
@@ -201,9 +248,13 @@ def main():
 
         # stats
         episodes.append(i_episode)
+
         rewards.append(episode_reward)
         past_n_avg.append(numpy.mean(rewards[-past_n:]))
         ewmas.append(new_ewma)
+
+        gammas.append(cur_gamma)
+        epsilons.append(cur_epsilon)
 
         if args.verbose >= 1:
             report_str = "Episode {} took {} timesteps, reward {}, " \
@@ -214,27 +265,13 @@ def main():
                                     learner.current_epsilon,
                                     learner.current_gamma))
 
-        learner.anneal(i_episode)
-
         # plotting, monitoring
-        if i_episode % 10 == 0:
-            plt.plot(episodes, rewards,
-                     color="cornflowerblue",
-                     label='rewards')
-            plt.plot(episodes, ewmas,
-                     color="mediumorchid",
-                     label='ewma, $\\alpha=0.1$')
-            plt.plot(episodes, past_n_avg,
-                     color="darkorchid",
-                     label='avg of past {}'.format(past_n))
-            # plt.legend()
-            plt.draw()
+        if i_episode % args.plot_update_freq == 0:
+            update_plots()
 
         if past_n_avg[-1] > victory_thresh:
             print("Success!")
             break
-
-    plt.show()
 
     if args.monitor:
         env.monitor.close()
